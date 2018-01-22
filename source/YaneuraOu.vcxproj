@@ -250,14 +250,14 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-user|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse42|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -458,6 +458,14 @@
     <Import Project="props\YaneuraOuCpu-x64-sse2.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-user|x64'">
+    <TargetName>yaneuraou</TargetName>
+    <TargetExt>.pyd</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse42|x64'">
+    <TargetName>yaneuraou</TargetName>
+    <TargetExt>.pyd</TargetExt>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-2018-Otafuku|Win32'" />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-mate|Win32'" />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-user|Win32'" />
@@ -553,13 +561,21 @@
     <ClCompile>
       <OpenMPSupport>
       </OpenMPSupport>
+      <AdditionalIncludeDirectories>$(USERPROFILE)\Anaconda3\include;$(ProjectDir)pybind11\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(USERPROFILE)\Anaconda3\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse42|x64'">
     <ClCompile>
       <OpenMPSupport>
       </OpenMPSupport>
+      <AdditionalIncludeDirectories>$(USERPROFILE)\Anaconda3\include;$(ProjectDir)pybind11\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(USERPROFILE)\Anaconda3\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse41|x64'">
     <ClCompile>
@@ -660,6 +676,7 @@
     <ClCompile Include="misc.cpp" />
     <ClCompile Include="movegen.cpp" />
     <ClCompile Include="move_picker.cpp" />
+    <ClCompile Include="pybind11.cpp" />
     <ClCompile Include="shogi.cpp" />
     <ClCompile Include="position.cpp" />
     <ClCompile Include="thread.cpp" />

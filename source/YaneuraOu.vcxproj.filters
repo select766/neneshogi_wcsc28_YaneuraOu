@@ -339,6 +339,9 @@
     <ClCompile Include="engine\2018-otafuku-engine\2018-otafuku-search.cpp">
       <Filter>リソース ファイル\engine\2018-otafuku-engine</Filter>
     </ClCompile>
+    <ClCompile Include="pybind11.cpp">
+      <Filter>リソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\docs\USI拡張コマンド.txt">
