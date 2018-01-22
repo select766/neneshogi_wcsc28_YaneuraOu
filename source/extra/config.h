@@ -366,7 +366,8 @@
 
 #ifdef USER_ENGINE
 #define ENGINE_NAME "YaneuraOu user engine"
-#define EVAL_KPP
+#define EVAL_MATERIAL
+#define USE_SEE
 #endif
 
 // --------------------
