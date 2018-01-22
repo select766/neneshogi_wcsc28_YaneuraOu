@@ -625,6 +625,7 @@
     <ClInclude Include="learn\multi_think.h" />
     <ClInclude Include="misc.h" />
     <ClInclude Include="move_picker.h" />
+    <ClInclude Include="pyinterface.h" />
     <ClInclude Include="search.h" />
     <ClInclude Include="shogi.h" />
     <ClInclude Include="position.h" />
@@ -677,6 +678,7 @@
     <ClCompile Include="movegen.cpp" />
     <ClCompile Include="move_picker.cpp" />
     <ClCompile Include="pybind11.cpp" />
+    <ClCompile Include="pyinterface.cpp" />
     <ClCompile Include="shogi.cpp" />
     <ClCompile Include="position.cpp" />
     <ClCompile Include="thread.cpp" />

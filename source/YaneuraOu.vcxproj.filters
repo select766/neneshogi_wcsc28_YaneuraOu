@@ -190,6 +190,9 @@
     <ClInclude Include="engine\2018-otafuku-engine\2018-otafuku-param.h">
       <Filter>リソース ファイル\engine\2018-otafuku-engine</Filter>
     </ClInclude>
+    <ClInclude Include="pyinterface.h">
+      <Filter>リソース ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="movegen.cpp">
@@ -340,6 +343,9 @@
       <Filter>リソース ファイル\engine\2018-otafuku-engine</Filter>
     </ClCompile>
     <ClCompile Include="pybind11.cpp">
+      <Filter>リソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="pyinterface.cpp">
       <Filter>リソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
