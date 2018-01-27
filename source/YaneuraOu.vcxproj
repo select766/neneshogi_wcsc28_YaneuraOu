@@ -566,6 +566,9 @@
     <Link>
       <AdditionalLibraryDirectories>$(USERPROFILE)\Anaconda3\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(TargetDir)$(TargetFileName) $(SolutionDir)python\yaneuraou\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse42|x64'">
     <ClCompile>
@@ -576,6 +579,9 @@
     <Link>
       <AdditionalLibraryDirectories>$(USERPROFILE)\Anaconda3\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(TargetDir)$(TargetFileName) $(SolutionDir)python\yaneuraou\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse41|x64'">
     <ClCompile>
