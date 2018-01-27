@@ -12,7 +12,16 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def_static("make_move_promote", &PyMove::make_move_promote)
 		.def_static("make_move_drop", &PyMove::make_move_drop)
 		.def_static("from_usi", &PyMove::from_usi)
-		.def("__str__", &PyMove::to_usi_string);
+		.def_static("from_int", &PyMove::from_int)
+		.def("is_ok", &PyMove::is_ok)
+		.def("is_drop", &PyMove::is_drop)
+		.def("is_promote", &PyMove::is_promote)
+		.def("special", &PyMove::special)
+		.def("move_from", &PyMove::move_from)
+		.def("move_to", &PyMove::move_to)
+		.def("move_dropped_piece", &PyMove::move_dropped_piece)
+		.def("__str__", &PyMove::to_usi_string)
+		.def("__repr__", &PyMove::to_usi_string);
 
 	py::class_<PyPosition>(m, "Position")
 		.def(py::init<>())
@@ -32,6 +41,12 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def("get_hand", &PyPosition::get_hand)
 		.def("generate_move_list", &PyPosition::genereate_move_list)
 		.def("set_from_packed_sfen", &PyPosition::set_from_packed_sfen)
+		.def("set_from_packed_sfen_value", &PyPosition::set_from_packed_sfen_value)
 		.def("__str__", &PyPosition::sfen)
+		.def("__repr__", &PyPosition::sfen)
+		.def_readonly("psv_score", &PyPosition::psv_score)
+		.def_readonly("psv_move", &PyPosition::psv_move)
+		.def_readonly("psv_game_ply", &PyPosition::psv_game_ply)
+		.def_readonly("psv_game_result", &PyPosition::psv_game_result)
 		;
 }

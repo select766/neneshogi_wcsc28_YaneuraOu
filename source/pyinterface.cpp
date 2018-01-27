@@ -4,7 +4,7 @@
 bool PyPosition::initialized = false;
 static MainThread *main_thread = nullptr;
 
-PyPosition::PyPosition()
+PyPosition::PyPosition() : psv_move(MOVE_NONE)
 {
 	if (!initialized)
 	{
@@ -147,6 +147,22 @@ bool PyPosition::set_from_packed_sfen(py::array_t<uint8_t, py::array::c_style | 
 	// gamePly = 0Ç∆Ç»ÇÈÇÃÇ≈íçà”
 }
 
+bool PyPosition::set_from_packed_sfen_value(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> packed_sfen)
+{
+	auto r = packed_sfen.unchecked<1>();
+	const PackedSfen* sfen = reinterpret_cast<const PackedSfen*>(r.data(0));
+	bool pos_ok = pos.set_from_packed_sfen(*sfen, &init_state, Threads.main()) == 0;
+	const int16_t* score = reinterpret_cast<const int16_t*>(r.data(32));
+	psv_score = *score;
+	const uint16_t* move = reinterpret_cast<const uint16_t*>(r.data(34));
+	psv_move = PyMove::from_int(*move);
+	const uint16_t* gamePly = reinterpret_cast<const uint16_t*>(r.data(36));
+	psv_game_ply = *gamePly;
+	const int8_t* game_result = reinterpret_cast<const int8_t*>(r.data(38));
+	psv_game_result = *game_result;
+	return pos_ok;
+}
+
 PyMove::PyMove(Move m)
 {
 	this->m = m;
@@ -167,9 +183,51 @@ PyMove PyMove::make_move_drop(uint32_t pt, int32_t to)
 	return PyMove(::make_move_drop((Piece)pt, (Square)to));
 }
 
+PyMove PyMove::from_int(uint16_t move)
+{
+	return PyMove((Move)move);
+}
+
 PyMove PyMove::from_usi(const std::string str)
 {
 	return PyMove(move_from_usi(str));
+}
+
+bool PyMove::is_ok()
+{
+	return ::is_ok(m);
+}
+
+bool PyMove::is_drop()
+{
+	return ::is_drop(m);
+}
+
+bool PyMove::is_promote()
+{
+	return ::is_promote(m);
+}
+
+int PyMove::special()
+{
+	// ì¡éÍÇ»MoveÇÃéÌóﬁÇï\Ç∑î‘çÜÇï‘Ç∑ÅB
+	// MOVE_NULL: 1, MOVE_RESIGN: 2, MOVE_WIN: 3
+	return ((int)m) & 0x7f;
+}
+
+int PyMove::move_from()
+{
+	return (int)::move_from(m);
+}
+
+int PyMove::move_to()
+{
+	return (int)::move_to(m);
+}
+
+int PyMove::move_dropped_piece()
+{
+	return (int)::move_dropped_piece(m);
 }
 
 std::string PyMove::to_usi_string()
