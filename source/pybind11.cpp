@@ -9,6 +9,9 @@ namespace py = pybind11;
 PYBIND11_MODULE(yaneuraou, m) {
 	py::class_<PyMove>(m, "Move")
 		.def_static("make_move", &PyMove::make_move)
+		.def_static("make_move_promote", &PyMove::make_move_promote)
+		.def_static("make_move_drop", &PyMove::make_move_drop)
+		.def_static("from_usi", &PyMove::from_usi)
 		.def("__str__", &PyMove::to_usi_string);
 
 	py::class_<PyPosition>(m, "Position")
