@@ -19,7 +19,7 @@ PyPosition::PyPosition()
 
 void PyPosition::set(std::string sfen)
 {
-	pos.set(sfen, &state[0], Threads.main());
+	pos.set(sfen, &init_state, Threads.main());
 }
 
 void PyPosition::set_hirate()
@@ -137,6 +137,14 @@ std::vector<PyMove> PyPosition::genereate_move_list()
 		move_list.push_back(PyMove(m));
 	}
 	return move_list;
+}
+
+bool PyPosition::set_from_packed_sfen(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> packed_sfen)
+{
+	auto r = packed_sfen.unchecked<1>();
+	const PackedSfen* sfen = reinterpret_cast<const PackedSfen*>(r.data(0));
+	return pos.set_from_packed_sfen(*sfen, &init_state, Threads.main()) == 0;
+	// gamePly = 0Ç∆Ç»ÇÈÇÃÇ≈íçà”
 }
 
 PyMove::PyMove(Move m)

@@ -20,6 +20,7 @@ class PyPosition {
 public:
 	StateInfo state[1024];
 	Move moves[1024];
+	StateInfo init_state;
 	Position pos;
 	static bool initialized;
 
@@ -39,4 +40,5 @@ public:
 	py::array_t<uint32_t> get_board();
 	py::array_t<uint32_t> get_hand();
 	std::vector<PyMove> genereate_move_list();
+	bool set_from_packed_sfen(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> packed_sfen);
 };

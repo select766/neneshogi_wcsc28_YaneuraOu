@@ -28,6 +28,7 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def("get_board", &PyPosition::get_board)
 		.def("get_hand", &PyPosition::get_hand)
 		.def("generate_move_list", &PyPosition::genereate_move_list)
+		.def("set_from_packed_sfen", &PyPosition::set_from_packed_sfen)
 		.def("__str__", &PyPosition::sfen)
 		;
 }
