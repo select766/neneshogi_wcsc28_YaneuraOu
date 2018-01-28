@@ -20,6 +20,7 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def("move_from", &PyMove::move_from)
 		.def("move_to", &PyMove::move_to)
 		.def("move_dropped_piece", &PyMove::move_dropped_piece)
+		.def("to_usi_string", &PyMove::to_usi_string)
 		.def("__str__", &PyMove::to_usi_string)
 		.def("__repr__", &PyMove::to_usi_string);
 
@@ -37,6 +38,7 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def("key", &PyPosition::key)
 		.def("in_check", &PyPosition::in_check)
 		.def("is_mated", &PyPosition::is_mated)
+		.def("legal", &PyPosition::legal)
 		.def("get_board", &PyPosition::get_board)
 		.def("get_hand", &PyPosition::get_hand)
 		.def("generate_move_list", &PyPosition::genereate_move_list)

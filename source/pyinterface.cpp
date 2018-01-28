@@ -78,6 +78,11 @@ bool PyPosition::is_mated() const
 	return pos.is_mated();
 }
 
+bool PyPosition::legal(PyMove m) const
+{
+	return pos.pseudo_legal(m.m) && pos.legal(m.m);
+}
+
 py::array_t<uint32_t> PyPosition::get_board()
 {
 	uint32_t buf[81];

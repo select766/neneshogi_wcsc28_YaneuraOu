@@ -49,6 +49,7 @@ public:
 	uint64_t key() const;
 	bool in_check() const;
 	bool is_mated() const;
+	bool legal(PyMove m) const;
 	py::array_t<uint32_t> get_board();
 	py::array_t<uint32_t> get_hand();
 	std::vector<PyMove> genereate_move_list();
