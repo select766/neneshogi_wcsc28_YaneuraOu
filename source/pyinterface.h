@@ -7,6 +7,10 @@ namespace py = pybind11;
 
 class PyMove {
 public:
+	static PyMove MOVE_NONE;
+	static PyMove MOVE_NULL;
+	static PyMove MOVE_RESIGN;
+	static PyMove MOVE_WIN;
 	Move m;
 	PyMove(Move m);
 	static PyMove make_move(int32_t from, int32_t to);
@@ -22,6 +26,7 @@ public:
 	int move_to();
 	int move_dropped_piece();
 	std::string to_usi_string();
+	bool __eq__(const PyMove m);
 };
 
 class PyPosition {

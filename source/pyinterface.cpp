@@ -239,3 +239,13 @@ std::string PyMove::to_usi_string()
 {
 	return ::to_usi_string(m);
 }
+
+bool PyMove::__eq__(const PyMove m)
+{
+	return this->m == m.m;
+}
+
+PyMove PyMove::MOVE_NONE = PyMove::from_int((Move)::MOVE_NONE);
+PyMove PyMove::MOVE_NULL = PyMove::from_int((Move)::MOVE_NULL);
+PyMove PyMove::MOVE_RESIGN = PyMove::from_int((Move)::MOVE_RESIGN);
+PyMove PyMove::MOVE_WIN = PyMove::from_int((Move)::MOVE_WIN);

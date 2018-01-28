@@ -13,6 +13,10 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def_static("make_move_drop", &PyMove::make_move_drop)
 		.def_static("from_usi", &PyMove::from_usi)
 		.def_static("from_int", &PyMove::from_int)
+		.def_readonly_static("MOVE_NONE", &PyMove::MOVE_NONE)
+		.def_readonly_static("MOVE_NULL", &PyMove::MOVE_NULL)
+		.def_readonly_static("MOVE_RESIGN", &PyMove::MOVE_RESIGN)
+		.def_readonly_static("MOVE_WIN", &PyMove::MOVE_WIN)
 		.def("is_ok", &PyMove::is_ok)
 		.def("is_drop", &PyMove::is_drop)
 		.def("is_promote", &PyMove::is_promote)
@@ -22,7 +26,9 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def("move_dropped_piece", &PyMove::move_dropped_piece)
 		.def("to_usi_string", &PyMove::to_usi_string)
 		.def("__str__", &PyMove::to_usi_string)
-		.def("__repr__", &PyMove::to_usi_string);
+		.def("__repr__", &PyMove::to_usi_string)
+		.def("__eq__", &PyMove::__eq__)
+		;
 
 	py::class_<PyPosition>(m, "Position")
 		.def(py::init<>())
