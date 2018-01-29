@@ -61,3 +61,19 @@ public:
 	bool set_from_packed_sfen(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> packed_sfen);
 	bool set_from_packed_sfen_value(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> packed_sfen);
 };
+
+class DNNConverter {
+public:
+	int format_board, format_move;
+	DNNConverter(int _format_board, int _format_move);
+	py::tuple board_shape() const;
+	py::tuple move_shape() const;
+	py::array_t<float> get_board_array(const PyPosition& pos) const;
+	py::array_t<float> get_move_array(const PyPosition& pos, PyMove move) const;
+	py::array_t<float> get_legal_move_array(const PyPosition& pos) const;
+	int get_move_index(const PyPosition& pos, PyMove move) const;
+	PyMove reverse_move_index(const PyPosition& pos, int move_index) const;
+private:
+	int get_move_index_inner(const Position& pos, Move m) const;
+	Move reverse_move_index_inner(const Position& pos, int move_index) const;
+};

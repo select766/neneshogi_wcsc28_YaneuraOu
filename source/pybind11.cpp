@@ -57,4 +57,15 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def_readonly("psv_game_ply", &PyPosition::psv_game_ply)
 		.def_readonly("psv_game_result", &PyPosition::psv_game_result)
 		;
+
+	py::class_<DNNConverter>(m, "DNNConverter")
+		.def(py::init<int, int>())
+		.def("board_shape", &DNNConverter::board_shape)
+		.def("move_shape", &DNNConverter::move_shape)
+		.def("get_board_array", &DNNConverter::get_board_array)
+		.def("get_move_array", &DNNConverter::get_move_array)
+		.def("get_legal_move_array", &DNNConverter::get_legal_move_array)
+		.def("get_move_index", &DNNConverter::get_move_index)
+		.def("reverse_move_index", &DNNConverter::reverse_move_index)
+		;
 }
