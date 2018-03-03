@@ -26,6 +26,7 @@ public:
 	int move_to();
 	int move_dropped_piece();
 	std::string to_usi_string();
+	uint16_t to_int();
 	bool __eq__(const PyMove m);
 };
 

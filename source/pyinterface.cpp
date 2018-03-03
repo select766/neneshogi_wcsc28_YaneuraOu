@@ -242,6 +242,11 @@ std::string PyMove::to_usi_string()
 	return ::to_usi_string(m);
 }
 
+uint16_t PyMove::to_int()
+{
+	return (uint16_t)m;
+}
+
 bool PyMove::__eq__(const PyMove m)
 {
 	return this->m == m.m;

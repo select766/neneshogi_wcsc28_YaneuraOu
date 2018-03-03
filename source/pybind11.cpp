@@ -25,6 +25,7 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def("move_to", &PyMove::move_to)
 		.def("move_dropped_piece", &PyMove::move_dropped_piece)
 		.def("to_usi_string", &PyMove::to_usi_string)
+		.def("to_int", &PyMove::to_int)
 		.def("__str__", &PyMove::to_usi_string)
 		.def("__repr__", &PyMove::to_usi_string)
 		.def("__eq__", &PyMove::__eq__)
