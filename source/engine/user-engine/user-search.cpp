@@ -58,6 +58,10 @@ void user_test(Position& pos_, istringstream& is)
 		}
 		cout << "}" << sync_endl;
 	}
+	else if (token == "sfen")
+	{
+		sync_cout << pos_.sfen() << sync_endl;
+	}
 }
 
 // USIに追加オプションを設定したいときは、この関数を定義すること。
