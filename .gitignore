@@ -21,6 +21,7 @@ YaneuraOu_backup*.lnk
 # for pyshogieval
 *.egg-info
 __pycache__
+.pyd
 
 # experimental
 
