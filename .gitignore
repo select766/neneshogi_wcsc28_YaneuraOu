@@ -18,6 +18,10 @@ YaneuraOu_backup*.lnk
 *~
 ~*
 
+# for pyshogieval
+*.egg-info
+__pycache__
+
 # experimental
 
 evaluate_experimental.*
