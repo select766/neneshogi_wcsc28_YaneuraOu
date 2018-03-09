@@ -1,3 +1,6 @@
 [submodule "pyshogieval/pybind11"]
 	path = pyshogieval/pybind11
 	url = https://github.com/pybind/pybind11
+[submodule "ipqueue"]
+	path = ipqueue
+	url = https://github.com/select766/ipqueue

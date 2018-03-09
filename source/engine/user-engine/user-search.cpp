@@ -1,5 +1,7 @@
 ﻿#include "../../extra/all.h"
 #include "mcts.h"
+#include "../../../ipqueue/ipqueue/ipqueue.h"
+#include "dnn_eval_obj.h"
 
 #ifndef USER_ENGINE
 void user_test(Position& pos_, istringstream& is)

@@ -193,6 +193,9 @@
     <ClInclude Include="engine\user-engine\mcts.h">
       <Filter>リソース ファイル\engine\user-engine</Filter>
     </ClInclude>
+    <ClInclude Include="engine\user-engine\dnn_eval_obj.h">
+      <Filter>リソース ファイル\engine\user-engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="movegen.cpp">

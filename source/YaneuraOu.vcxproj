@@ -578,6 +578,7 @@
     <ClInclude Include="engine\2018-otafuku-engine\2018-otafuku-param.h" />
     <ClInclude Include="engine\help-mate-engine\help-mate-search.h" />
     <ClInclude Include="engine\mate-engine\mate-search.h" />
+    <ClInclude Include="engine\user-engine\dnn_eval_obj.h" />
     <ClInclude Include="engine\user-engine\mcts.h" />
     <ClInclude Include="evaluate.h" />
     <ClInclude Include="eval\evaluate_io.h" />
