@@ -6,7 +6,7 @@
 bool PyPosition::initialized = false;
 static MainThread *main_thread = nullptr;
 
-PyPosition::PyPosition() : psv_move(MOVE_NONE)
+PyPosition::PyPosition() : psv_move(MOVE_NONE), rnd(std::random_device()())
 {
 	if (!initialized)
 	{
@@ -83,6 +83,71 @@ bool PyPosition::is_mated() const
 bool PyPosition::legal(PyMove m) const
 {
 	return pos.pseudo_legal(m.m) && pos.legal(m.m);
+}
+
+Value PyPosition::_search(int depth, Value alpha, Value beta)
+{
+	if (depth > 0)
+	{
+		bool mated = true;
+		for (auto m : MoveList<LEGAL>(pos))
+		{
+			mated = false;
+
+			StateInfo si;
+			pos.do_move(m, si);
+			Value v = -_search(depth - 1, -beta, -alpha);
+			pos.undo_move(m);
+			if (v > alpha)
+			{
+				alpha = v;
+			}
+			if (alpha > beta)
+			{
+				break;
+			}
+		}
+		if (mated)
+		{
+			return -VALUE_MATE;
+		}
+		return alpha;
+	}
+	else
+	{
+		return Eval::evaluate(pos);
+	}
+}
+
+PyMove PyPosition::search(int depth)
+{
+	std::vector<Move> move_list;
+	for (auto m : MoveList<LEGAL>(pos))
+	{
+		move_list.push_back(m);
+	}
+
+	Move best_move = MOVE_RESIGN;
+	if (!move_list.empty())
+	{
+		// 評価値が同じ場合にランダム性を出すためにシャッフル
+		std::shuffle(move_list.begin(), move_list.end(), rnd);
+
+		Value best_value = -VALUE_INFINITE;
+		for (auto m : move_list)
+		{
+			StateInfo si;
+			pos.do_move(m, si);
+			Value v = -_search(depth - 1, -VALUE_INFINITE, VALUE_INFINITE);
+			pos.undo_move(m);
+			if (v > best_value)
+			{
+				best_value = v;
+				best_move = m;
+			}
+		}
+	}
+	return PyMove(best_move);
 }
 
 py::array_t<uint32_t> PyPosition::get_board()

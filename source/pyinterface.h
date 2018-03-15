@@ -1,5 +1,6 @@
 #pragma once
 #include "../../position.h"
+#include <random>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
@@ -31,16 +32,18 @@ public:
 };
 
 class PyPosition {
-public:
+	static bool initialized;
 	StateInfo state[1024];
 	Move moves[1024];
 	StateInfo init_state;
+	std::mt19937 rnd;
+	Value _search(int depth, Value alpha, Value beta);
+public:
 	Position pos;
 	int16_t psv_score;
 	PyMove psv_move;
 	uint16_t psv_game_ply;
 	int8_t psv_game_result;
-	static bool initialized;
 
 	PyPosition();
 	void set(const std::string sfen);
@@ -56,6 +59,7 @@ public:
 	bool in_check() const;
 	bool is_mated() const;
 	bool legal(PyMove m) const;
+	PyMove search(int depth);
 	py::array_t<uint32_t> get_board();
 	py::array_t<uint32_t> get_hand();
 	std::vector<PyMove> genereate_move_list();

@@ -46,6 +46,7 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def("in_check", &PyPosition::in_check)
 		.def("is_mated", &PyPosition::is_mated)
 		.def("legal", &PyPosition::legal)
+		.def("search", &PyPosition::search)
 		.def("get_board", &PyPosition::get_board)
 		.def("get_hand", &PyPosition::get_hand)
 		.def("generate_move_list", &PyPosition::genereate_move_list)
