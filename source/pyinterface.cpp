@@ -235,6 +235,13 @@ bool PyPosition::set_from_packed_sfen_value(py::array_t<uint8_t, py::array::c_st
 	return pos_ok;
 }
 
+py::bytes PyPosition::sfen_pack()
+{
+	PackedSfen ps;
+	pos.sfen_pack(ps);
+	return py::bytes(reinterpret_cast<const char*>(ps.data), sizeof(ps.data));
+}
+
 PyMove::PyMove(Move m)
 {
 	this->m = m;

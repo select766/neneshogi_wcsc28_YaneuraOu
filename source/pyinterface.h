@@ -65,6 +65,7 @@ public:
 	std::vector<PyMove> genereate_move_list();
 	bool set_from_packed_sfen(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> packed_sfen);
 	bool set_from_packed_sfen_value(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> packed_sfen);
+	py::bytes sfen_pack();
 };
 
 class DNNConverter {

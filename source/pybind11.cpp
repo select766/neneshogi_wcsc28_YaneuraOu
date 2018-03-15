@@ -52,6 +52,7 @@ PYBIND11_MODULE(yaneuraou, m) {
 		.def("generate_move_list", &PyPosition::genereate_move_list)
 		.def("set_from_packed_sfen", &PyPosition::set_from_packed_sfen)
 		.def("set_from_packed_sfen_value", &PyPosition::set_from_packed_sfen_value)
+		.def("sfen_pack", &PyPosition::sfen_pack)
 		.def("__str__", &PyPosition::sfen)
 		.def("__repr__", &PyPosition::sfen)
 		.def_readonly("psv_score", &PyPosition::psv_score)
