@@ -4,15 +4,15 @@
 #include "stdafx.h"
 
 #include <pybind11/pybind11.h>
-#include "../ipqueue/ipqueue/ipqueue.h"
-#include "../source/engine/user-engine/dnn_eval_obj.h"
-
-int add(int i, int j) {
-	return i + j;
-}
+#include <pybind11/numpy.h>
+#include "shogieval.h"
 
 PYBIND11_MODULE(pyshogieval, m) {
 	m.doc() = "Inter-process communication module for neneshogi evaluation";
 
-	m.def("add", &add, "A function which adds two numbers");
+	py::class_<ShogiEval>(m, "ShogiEval")
+		.def(py::init<>())
+		.def("get", &ShogiEval::get)
+		.def("put", &ShogiEval::put)
+		;
 }

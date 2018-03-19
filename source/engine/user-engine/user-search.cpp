@@ -1,4 +1,5 @@
 ﻿#include "../../extra/all.h"
+#include <thread>
 #include "mcts.h"
 #include "../../../ipqueue/ipqueue/ipqueue.h"
 #include "dnn_eval_obj.h"
@@ -12,6 +13,214 @@ void user_test(Position& pos_, istringstream& is)
 
 #ifdef USER_ENGINE
 
+#ifdef USER_ENGINE_POLICY
+
+ipqueue<dnn_eval_obj> *eval_queue;
+ipqueue<dnn_result_obj> *result_queue;
+
+// USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
+void user_test(Position& pos_, istringstream& is)
+{
+	string token;
+	is >> token;
+}
+
+// USIに追加オプションを設定したいときは、この関数を定義すること。
+// USI::init()のなかからコールバックされる。
+void USI::extra_option(USI::OptionsMap & o)
+{
+}
+
+// 起動時に呼び出される。時間のかからない探索関係の初期化処理はここに書くこと。
+void Search::init()
+{
+	eval_queue = new ipqueue<dnn_eval_obj>(16, std::string("neneshogi_eval"), false);
+	result_queue = new ipqueue<dnn_result_obj>(16, std::string("neneshogi_result"), false);
+}
+
+// isreadyコマンドの応答中に呼び出される。時間のかかる処理はここに書くこと。
+void  Search::clear()
+{
+	if (!eval_queue->ok)
+	{
+		sync_cout << "info string eval queue error!" << sync_endl;
+	}
+	if (!result_queue->ok)
+	{
+		sync_cout << "info string result queue error!" << sync_endl;
+	}
+}
+
+int get_move_index(const Position & pos, Move m)
+{
+	/*
+	AlphaZeroの論文を参考に作成
+	9x9は移動元。
+	139次元のうち、64次元は「クイーン」の動き(8方向*最大8マス)。
+	2次元は桂馬の動き。66次元は前述の64+2次元と動きは同じで、成る場合。
+	7次元は駒を打つ場合で、この場合の座標は打つ先。
+	クイーンの動きは(筋,段)=(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)
+	* 後手番の際は、盤面・駒の所属を反転して先手番の状態にする。
+	*/
+	Color side_to_move = pos.side_to_move();
+	Square _move_to = move_to(m);
+	if (side_to_move == WHITE) {
+		_move_to = Inv(_move_to);
+	}
+
+	if (is_drop(m))
+	{
+		return (move_dropped_piece(m) - PAWN + 132) * (int)SQ_NB + _move_to;
+	}
+	else
+	{
+		Square _move_from = move_from(m);
+		if (side_to_move == WHITE) {
+			_move_from = Inv(_move_from);
+		}
+
+		int file_diff = file_of(_move_to) - file_of(_move_from);
+		int rank_diff = rank_of(_move_to) - rank_of(_move_from);
+		int ch;
+		if (file_diff == -1 && rank_diff == -2)
+		{
+			ch = 64;
+		}
+		else if (file_diff == 1 && rank_diff == -2)
+		{
+			ch = 65;
+		}
+		else if (file_diff < 0)
+		{
+			if (rank_diff < 0)
+			{
+				ch = -1 + -file_diff;
+			}
+			else if (rank_diff == 0)
+			{
+				ch = 7 + -file_diff;
+			}
+			else
+			{
+				ch = 15 + -file_diff;
+			}
+		}
+		else if (file_diff == 0)
+		{
+			if (rank_diff < 0)
+			{
+				ch = 23 + -rank_diff;
+			}
+			else
+			{
+				ch = 31 + rank_diff;
+			}
+		}
+		else
+		{
+			// fild_diff > 0
+			if (rank_diff < 0)
+			{
+				ch = 39 + file_diff;
+			}
+			else if (rank_diff == 0)
+			{
+				ch = 47 + file_diff;
+			}
+			else
+			{
+				ch = 55 + file_diff;
+			}
+		}
+
+		if (is_promote(m))
+		{
+			ch += 66;
+		}
+
+		return ch * (int)SQ_NB + _move_from;
+	}
+}
+
+
+// 探索開始時に呼び出される。
+// この関数内で初期化を終わらせ、slaveスレッドを起動してThread::search()を呼び出す。
+// そのあとslaveスレッドを終了させ、ベストな指し手を返すこと。
+void MainThread::think()
+{
+	if (rootPos.is_mated())
+	{
+		sync_cout << "bestmove resign" << sync_endl;
+		return;
+	}
+	//キューに現局面を入れる
+	dnn_eval_obj *eval_obj;
+	while (!(eval_obj = eval_queue->begin_write()))
+	{
+		std::this_thread::sleep_for(std::chrono::microseconds(1));
+	}
+
+	for (size_t i = 0; i < SQ_NB; i++)
+	{
+		eval_obj->board[i] = (uint8_t)rootPos.piece_on((Square)i);
+	}
+	for (Color i = COLOR_ZERO; i < COLOR_NB; i++)
+	{
+		eval_obj->hand[i] = rootPos.hand_of(i);
+	}
+	eval_obj->side_to_move = (uint8_t)rootPos.side_to_move();
+	eval_obj->in_check = rootPos.in_check();
+	eval_obj->game_ply = (uint16_t)rootPos.game_ply();
+
+	int m_i = 0;
+	for (auto m : MoveList<LEGAL>(rootPos))
+	{
+		dnn_move_index dmi;
+		dmi.move = (uint16_t)m.move;
+		dmi.index = get_move_index(rootPos, m.move);
+		eval_obj->move_indices[m_i] = dmi;
+		m_i++;
+	}
+	eval_obj->n_moves = m_i;
+
+	eval_queue->end_write();
+
+	// 評価を待つ
+	dnn_result_obj *result_obj;
+	while (!(result_obj = result_queue->begin_read()))
+	{
+		std::this_thread::sleep_for(std::chrono::microseconds(1));
+	}
+
+	sync_cout << "info score cp " << result_obj->static_value << sync_endl;
+	dnn_move_prob best_move_prob;
+	best_move_prob.prob_scaled = 0;
+	for (size_t i = 0; i < result_obj->n_moves; i++)
+	{
+		dnn_move_prob &mp = result_obj->move_probs[i];
+		sync_cout << "info string move " << (Move)mp.move << " prob " << mp.prob_scaled << sync_endl;
+		if (mp.prob_scaled > best_move_prob.prob_scaled)
+		{
+			best_move_prob = mp;
+		}
+	}
+
+	result_queue->end_read();
+
+	Move bestMove = (Move)best_move_prob.move;
+	sync_cout << "bestmove " << bestMove << sync_endl;
+}
+
+// 探索本体。並列化している場合、ここがslaveのエントリーポイント。
+// MainThread::search()はvirtualになっていてthink()が呼び出されるので、MainThread::think()から
+// この関数を呼び出したいときは、Thread::search()とすること。
+void Thread::search()
+{
+}
+
+#endif
+
+#ifdef USER_ENGINE_MCTS
 static TreeConfig* tree_config;
 
 // USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
@@ -50,7 +259,7 @@ void user_test(Position& pos_, istringstream& is)
 		float score;
 		vector<Move> move_list;
 		vector<float> value_p;
-		
+
 		pseudo_eval(pos_, tsr, score, move_list, value_p);
 		sync_cout << "{";
 		cout << "\"\":" << score;
@@ -93,7 +302,7 @@ static TreeNode* generate_root(Position &pos)
 	float score;
 	vector<Move> move_list;
 	vector<float> value_p;
-	
+
 	pseudo_eval(pos, tsr, score, move_list, value_p);
 	if (move_list.size() == 0)
 	{
@@ -180,5 +389,7 @@ void MainThread::think()
 void Thread::search()
 {
 }
+
+#endif
 
 #endif // USER_ENGINE
