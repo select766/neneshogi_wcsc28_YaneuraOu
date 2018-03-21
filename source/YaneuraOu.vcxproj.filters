@@ -196,6 +196,9 @@
     <ClInclude Include="engine\user-engine\dnn_eval_obj.h">
       <Filter>リソース ファイル\engine\user-engine</Filter>
     </ClInclude>
+    <ClInclude Include="engine\user-engine\user-search_common.h">
+      <Filter>リソース ファイル\engine\user-engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="movegen.cpp">
@@ -346,6 +349,18 @@
       <Filter>リソース ファイル\engine\2018-otafuku-engine</Filter>
     </ClCompile>
     <ClCompile Include="engine\user-engine\mcts.cpp">
+      <Filter>リソース ファイル\engine\user-engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\user-engine\user-search_common.cpp">
+      <Filter>リソース ファイル\engine\user-engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\user-engine\user-search_policy.cpp">
+      <Filter>リソース ファイル\engine\user-engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\user-engine\user-search_search1.cpp">
+      <Filter>リソース ファイル\engine\user-engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\user-engine\user-search_mcts_sync.cpp">
       <Filter>リソース ファイル\engine\user-engine</Filter>
     </ClCompile>
   </ItemGroup>

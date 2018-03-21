@@ -1,4 +1,5 @@
 #include "../../extra/all.h"
+#include "user-search_common.h"
 #include "../../../ipqueue/ipqueue/ipqueue.h"
 #include "dnn_eval_obj.h"
 

@@ -580,6 +580,7 @@
     <ClInclude Include="engine\mate-engine\mate-search.h" />
     <ClInclude Include="engine\user-engine\dnn_eval_obj.h" />
     <ClInclude Include="engine\user-engine\mcts.h" />
+    <ClInclude Include="engine\user-engine\user-search_common.h" />
     <ClInclude Include="evaluate.h" />
     <ClInclude Include="eval\evaluate_io.h" />
     <ClInclude Include="eval\evaluate_common.h" />
@@ -625,6 +626,10 @@
     <ClCompile Include="engine\mate-engine\mate-search.cpp" />
     <ClCompile Include="engine\user-engine\mcts.cpp" />
     <ClCompile Include="engine\user-engine\user-search.cpp" />
+    <ClCompile Include="engine\user-engine\user-search_common.cpp" />
+    <ClCompile Include="engine\user-engine\user-search_mcts_sync.cpp" />
+    <ClCompile Include="engine\user-engine\user-search_policy.cpp" />
+    <ClCompile Include="engine\user-engine\user-search_search1.cpp" />
     <ClCompile Include="eval\evaluate_bona_piece.cpp" />
     <ClCompile Include="eval\evaluate_io.cpp" />
     <ClCompile Include="eval\evaluate.cpp" />
