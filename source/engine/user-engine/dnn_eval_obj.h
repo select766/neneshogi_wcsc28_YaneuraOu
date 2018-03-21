@@ -9,6 +9,14 @@ public:
 };
 #endif
 
+#ifdef USER_ENGINE_SEARCH1
+class dnn_table_index
+{
+public:
+	Move m;
+};
+#endif
+
 class dnn_move_index
 {
 public:

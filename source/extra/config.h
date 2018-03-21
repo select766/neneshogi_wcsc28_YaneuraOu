@@ -365,7 +365,8 @@
 // --- ユーザーの自作エンジンとして実行ファイルを公開するとき用の設定集
 
 #ifdef USER_ENGINE
-#define USER_ENGINE_POLICY
+//#define USER_ENGINE_POLICY
+#define USER_ENGINE_SEARCH1
 #define ENGINE_NAME "YaneuraOu user engine"
 #define EVAL_KPPT
 #define USE_SEE
