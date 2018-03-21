@@ -4,8 +4,8 @@
 
 ShogiEval::ShogiEval()
 {
-	eval_queue = new ipqueue<dnn_eval_obj>(16, std::string("neneshogi_eval"), true);
-	result_queue = new ipqueue<dnn_result_obj>(16, std::string("neneshogi_result"), true);
+	eval_queue = new ipqueue<dnn_eval_obj>(16, 16, std::string("neneshogi_eval"), true);
+	result_queue = new ipqueue<dnn_result_obj>(16, 16, std::string("neneshogi_result"), true);
 }
 
 
@@ -96,35 +96,65 @@ static int get_move_and_index_array(uint16_t *buf, dnn_eval_obj &eval_obj)
 	return eval_obj.n_moves;
 }
 
-int ShogiEval::get(py::array_t<float, py::array::c_style> dnn_input, py::array_t<uint16_t, py::array::c_style> move_and_index)
+py::tuple ShogiEval::get(py::array_t<float, py::array::c_style> dnn_input, py::array_t<uint16_t, py::array::c_style> move_and_index,
+	py::array_t<uint16_t, py::array::c_style> n_moves)
 {
-	// dnn_input: (86,9,9) array
-	// move_and_index: (600, 2) array 2=(move, flattened_index)
-	dnn_eval_obj *eval_obj;
-	while (!(eval_obj = eval_queue->begin_read()))
+	// dnn_input: (n,86,9,9) array
+	// move_and_index: (n,600,2) array 2=(move, flattened_index)
+	// n_moves: (n,) array
+	// returns elements count and dnn_table_index
+	ipqueue_item<dnn_eval_obj> *eval_objs;
+	while (!(eval_objs = eval_queue->begin_read()))
 	{
 		std::this_thread::sleep_for(std::chrono::microseconds(1));
 	}
 
-	get_board_array(dnn_input.mutable_data(), *eval_obj);
-	int n_moves = get_move_and_index_array(move_and_index.mutable_data(), *eval_obj);
+	float *dnn_input_data = dnn_input.mutable_data();
+	uint16_t *move_and_index_data = move_and_index.mutable_data();
+	uint16_t *n_moves_data = n_moves.mutable_data();
+	dnn_table_index *dnn_table_indexes = new dnn_table_index[eval_objs->count];
+	for (size_t i = 0; i < eval_objs->count; i++)
+	{
+		get_board_array(dnn_input_data, eval_objs->elements[i]);
+		*n_moves_data = get_move_and_index_array(move_and_index_data, eval_objs->elements[i]);
+		dnn_table_indexes[i] = eval_objs->elements[i].index;
+		dnn_input_data += 86 * 9 * 9;
+		move_and_index_data += 600 * 2;
+		n_moves_data++;
+	}
+
 
 	eval_queue->end_read();
-	return n_moves;
+	
+	auto t = py::make_tuple((int)eval_objs->count, py::bytes(reinterpret_cast<char*>(dnn_table_indexes), sizeof(dnn_table_index)*eval_objs->count));
+	delete[] dnn_table_indexes;
+	return t;
 }
 
-void ShogiEval::put(int n_moves, py::array_t<uint16_t, py::array::c_style> move_and_prob, int16_t static_value)
+void ShogiEval::put(int count, std::string dnn_table_indexes, py::array_t<uint16_t, py::array::c_style> move_and_prob,
+	py::array_t<uint16_t, py::array::c_style> n_moves, py::array_t<int16_t, py::array::c_style> static_value)
 {
-	dnn_result_obj *result_obj;
-	while (!(result_obj = result_queue->begin_write()))
+	ipqueue_item<dnn_result_obj> *result_objs;
+	while (!(result_objs = result_queue->begin_write()))
 	{
 		std::this_thread::sleep_for(std::chrono::microseconds(1));
 	}
 
-	result_obj->static_value = static_value;
-	const uint16_t *move_and_prob_buf = move_and_prob.data();
-	memcpy(result_obj->move_probs, move_and_prob_buf, sizeof(result_obj->move_probs[0]) * n_moves);
-	result_obj->n_moves = n_moves;
+	result_objs->count = count;
+	const dnn_table_index *dnn_table_indexes_casted = reinterpret_cast<const dnn_table_index*>(dnn_table_indexes.c_str());
+	const int16_t *static_value_data = static_value.data();
+	const uint16_t *move_and_prob_data = move_and_prob.data();
+	const uint16_t *n_moves_data = n_moves.data();
+	for (size_t i = 0; i < count; i++)
+	{
+		memcpy(result_objs->elements[i].move_probs, move_and_prob_data, sizeof(uint16_t) * 600 * 2);
+		result_objs->elements[i].index = dnn_table_indexes_casted[i];
+		result_objs->elements[i].n_moves = *n_moves_data;
+		result_objs->elements[i].static_value = *static_value_data;
+		move_and_prob_data += 600 * 2;
+		n_moves_data++;
+		static_value_data++;
+	}
 
 	result_queue->end_write();
 

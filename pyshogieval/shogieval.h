@@ -14,6 +14,8 @@ class ShogiEval
 	ipqueue<dnn_result_obj> *result_queue;
 public:
 	ShogiEval();
-	int get(py::array_t<float, py::array::c_style> dnn_input, py::array_t<uint16_t, py::array::c_style> move_and_index);
-	void put(int n_moves, py::array_t<uint16_t, py::array::c_style> move_and_prob, int16_t static_value);
+	py::tuple get(py::array_t<float, py::array::c_style> dnn_input, py::array_t<uint16_t, py::array::c_style> move_and_index,
+		py::array_t<uint16_t, py::array::c_style> n_moves);
+	void put(int count, std::string dnn_table_indexes, py::array_t<uint16_t, py::array::c_style> move_and_prob,
+		py::array_t<uint16_t, py::array::c_style> n_moves, py::array_t<int16_t, py::array::c_style> static_value);
 };

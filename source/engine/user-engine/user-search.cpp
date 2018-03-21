@@ -34,8 +34,8 @@ void USI::extra_option(USI::OptionsMap & o)
 // 起動時に呼び出される。時間のかからない探索関係の初期化処理はここに書くこと。
 void Search::init()
 {
-	eval_queue = new ipqueue<dnn_eval_obj>(16, std::string("neneshogi_eval"), false);
-	result_queue = new ipqueue<dnn_result_obj>(16, std::string("neneshogi_result"), false);
+	eval_queue = new ipqueue<dnn_eval_obj>(16, 16, std::string("neneshogi_eval"), false);
+	result_queue = new ipqueue<dnn_result_obj>(16, 16, std::string("neneshogi_result"), false);
 }
 
 // isreadyコマンドの応答中に呼び出される。時間のかかる処理はここに書くこと。
@@ -142,6 +142,31 @@ int get_move_index(const Position & pos, Move m)
 	}
 }
 
+void write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos)
+{
+	for (size_t i = 0; i < SQ_NB; i++)
+	{
+		eval_obj->board[i] = (uint8_t)pos.piece_on((Square)i);
+	}
+	for (Color i = COLOR_ZERO; i < COLOR_NB; i++)
+	{
+		eval_obj->hand[i] = pos.hand_of(i);
+	}
+	eval_obj->side_to_move = (uint8_t)pos.side_to_move();
+	eval_obj->in_check = pos.in_check();
+	eval_obj->game_ply = (uint16_t)pos.game_ply();
+
+	int m_i = 0;
+	for (auto m : MoveList<LEGAL>(pos))
+	{
+		dnn_move_index dmi;
+		dmi.move = (uint16_t)m.move;
+		dmi.index = get_move_index(pos, m.move);
+		eval_obj->move_indices[m_i] = dmi;
+		m_i++;
+	}
+	eval_obj->n_moves = m_i;
+}
 
 // 探索開始時に呼び出される。
 // この関数内で初期化を終わらせ、slaveスレッドを起動してThread::search()を呼び出す。
@@ -154,43 +179,23 @@ void MainThread::think()
 		return;
 	}
 	//キューに現局面を入れる
-	dnn_eval_obj *eval_obj;
-	while (!(eval_obj = eval_queue->begin_write()))
+	ipqueue_item<dnn_eval_obj> *eval_objs;
+	while (!(eval_objs = eval_queue->begin_write()))
 	{
 		std::this_thread::sleep_for(std::chrono::microseconds(1));
 	}
 
-	for (size_t i = 0; i < SQ_NB; i++)
-	{
-		eval_obj->board[i] = (uint8_t)rootPos.piece_on((Square)i);
-	}
-	for (Color i = COLOR_ZERO; i < COLOR_NB; i++)
-	{
-		eval_obj->hand[i] = rootPos.hand_of(i);
-	}
-	eval_obj->side_to_move = (uint8_t)rootPos.side_to_move();
-	eval_obj->in_check = rootPos.in_check();
-	eval_obj->game_ply = (uint16_t)rootPos.game_ply();
-
-	int m_i = 0;
-	for (auto m : MoveList<LEGAL>(rootPos))
-	{
-		dnn_move_index dmi;
-		dmi.move = (uint16_t)m.move;
-		dmi.index = get_move_index(rootPos, m.move);
-		eval_obj->move_indices[m_i] = dmi;
-		m_i++;
-	}
-	eval_obj->n_moves = m_i;
-
+	write_eval_obj(&eval_objs->elements[0], rootPos);
+	eval_objs->count = 1;
 	eval_queue->end_write();
 
 	// 評価を待つ
-	dnn_result_obj *result_obj;
-	while (!(result_obj = result_queue->begin_read()))
+	ipqueue_item<dnn_result_obj> *result_objs;
+	while (!(result_objs = result_queue->begin_read()))
 	{
 		std::this_thread::sleep_for(std::chrono::microseconds(1));
 	}
+	dnn_result_obj *result_obj = &result_objs->elements[0];
 
 	sync_cout << "info score cp " << result_obj->static_value << sync_endl;
 	dnn_move_prob best_move_prob;

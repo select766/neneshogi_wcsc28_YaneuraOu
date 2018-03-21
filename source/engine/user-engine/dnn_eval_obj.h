@@ -5,7 +5,7 @@
 class dnn_table_index
 {
 public:
-
+	int dummy;
 };
 #endif
 
