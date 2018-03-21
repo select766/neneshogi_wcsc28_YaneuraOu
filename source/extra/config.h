@@ -366,7 +366,8 @@
 
 #ifdef USER_ENGINE
 //#define USER_ENGINE_POLICY
-#define USER_ENGINE_SEARCH1
+//#define USER_ENGINE_SEARCH1
+#define USER_ENGINE_MCTS_SYNC
 #define ENGINE_NAME "YaneuraOu user engine"
 #define EVAL_KPPT
 #define USE_SEE

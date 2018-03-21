@@ -16,7 +16,7 @@ void user_test(Position& pos_, istringstream& is)
 ipqueue<dnn_eval_obj> *eval_queue;
 ipqueue<dnn_result_obj> *result_queue;
 
-static int get_move_index(const Position & pos, Move m)
+int dnn_get_move_index(const Position & pos, Move m)
 {
 	/*
 	AlphaZeroの論文を参考に作成
@@ -107,7 +107,7 @@ static int get_move_index(const Position & pos, Move m)
 	}
 }
 
-static void write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos)
+void dnn_write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos)
 {
 	for (size_t i = 0; i < SQ_NB; i++)
 	{
@@ -126,7 +126,7 @@ static void write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos)
 	{
 		dnn_move_index dmi;
 		dmi.move = (uint16_t)m.move;
-		dmi.index = get_move_index(pos, m.move);
+		dmi.index = dnn_get_move_index(pos, m.move);
 		eval_obj->move_indices[m_i] = dmi;
 		m_i++;
 	}
@@ -185,7 +185,7 @@ void MainThread::think()
 		std::this_thread::sleep_for(std::chrono::microseconds(1));
 	}
 
-	write_eval_obj(&eval_objs->elements[0], rootPos);
+	dnn_write_eval_obj(&eval_objs->elements[0], rootPos);
 	eval_objs->count = 1;
 	eval_queue->end_write();
 
@@ -284,7 +284,7 @@ void MainThread::think()
 
 		//キューに現局面を入れる
 		dnn_eval_obj *eval_obj = &eval_objs->elements[write_index++];
-		write_eval_obj(eval_obj, rootPos);
+		dnn_write_eval_obj(eval_obj, rootPos);
 		eval_obj->index.m = m;
 		total_moves++;
 
@@ -353,7 +353,7 @@ void Thread::search()
 }
 #endif
 
-#ifdef USER_ENGINE_MCTS
+#ifdef USER_ENGINE_MCTS_SYNC
 static TreeConfig* tree_config;
 
 // USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
@@ -417,6 +417,8 @@ void USI::extra_option(USI::OptionsMap & o)
 // 起動時に呼び出される。時間のかからない探索関係の初期化処理はここに書くこと。
 void Search::init()
 {
+	eval_queue = new ipqueue<dnn_eval_obj>(0, 0, std::string("neneshogi_eval"), false);
+	result_queue = new ipqueue<dnn_result_obj>(0, 0, std::string("neneshogi_result"), false);
 	tree_config = new TreeConfig();
 	tree_config->c_puct = 1.0;
 	tree_config->play_temperature = 0.01;
@@ -426,6 +428,14 @@ void Search::init()
 // isreadyコマンドの応答中に呼び出される。時間のかかる処理はここに書くこと。
 void  Search::clear()
 {
+	if (!eval_queue->ok)
+	{
+		sync_cout << "info string eval queue error!" << sync_endl;
+	}
+	if (!result_queue->ok)
+	{
+		sync_cout << "info string result queue error!" << sync_endl;
+	}
 }
 
 
@@ -436,7 +446,7 @@ static TreeNode* generate_root(Position &pos)
 	vector<Move> move_list;
 	vector<float> value_p;
 
-	pseudo_eval(pos, tsr, score, move_list, value_p);
+	mcts_sync_eval(pos, tsr, score, move_list, value_p, eval_queue, result_queue);
 	if (move_list.size() == 0)
 	{
 		// 詰み
@@ -453,7 +463,7 @@ static TreeNode* generate_root(Position &pos)
 void MainThread::think()
 {
 	Move bestMove = MOVE_RESIGN;
-	int max_nodes = 10000;
+	int max_nodes = 100;
 	TreeNode* tree_root = generate_root(rootPos);
 	if (tree_root)
 	{
@@ -466,7 +476,7 @@ void MainThread::think()
 				float score;
 				vector<Move> move_list;
 				vector<float> value_p;
-				pseudo_eval(rootPos, tsr, score, move_list, value_p);
+				mcts_sync_eval(rootPos, tsr, score, move_list, value_p, eval_queue, result_queue);
 
 				if (move_list.size() == 0)
 				{

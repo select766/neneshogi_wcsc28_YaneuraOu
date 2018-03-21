@@ -17,6 +17,14 @@ public:
 };
 #endif
 
+#ifdef USER_ENGINE_MCTS_SYNC
+class dnn_table_index
+{
+public:
+	int dummy;
+};
+#endif
+
 class dnn_move_index
 {
 public:

@@ -2,6 +2,8 @@
 
 #include "mcts.h"
 
+int dnn_get_move_index(const Position & pos, Move m);
+void dnn_write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos);
 
 TreeNode::TreeNode(TreeConfig * tree_config, TreeNode * parent, int parent_edge_index, vector<Move>& move_list, float score, vector<float>& value_p)
 	//: children(), value_p(), value_n(), value_w(), value_q()
@@ -244,6 +246,55 @@ void pseudo_eval(Position& rootPos, TreeSelectResult& leaf, float& score, vector
 	{
 		value_p.push_back((float)(exp_vd / sum_exp_vd));
 	}
+
+	// ‹Ç–Ê‚ğ–ß‚·
+	for (int i = (int)leaf.moves.size() - 1; i >= 0; i--)
+	{
+		rootPos.undo_move(leaf.moves[i]);
+	}
+}
+
+void mcts_sync_eval(Position& rootPos, TreeSelectResult& leaf, float& score, vector<Move>& move_list, vector<float>& value_p,
+	ipqueue<dnn_eval_obj> *eval_queue, ipqueue<dnn_result_obj> *result_queue)
+{
+	// “¯Šú“I‚É•]‰¿‚³‚¹‚é
+	StateInfo sis[256];
+	// •]‰¿‚·‚×‚«‹Ç–Ê‚Ü‚Åi‚ß‚é
+	for (size_t i = 0; i < leaf.moves.size(); i++)
+	{
+		rootPos.do_move(leaf.moves[i], sis[i]);
+	}
+
+	//ƒLƒ…[‚ÉŒ»‹Ç–Ê‚ğ“ü‚ê‚é
+	ipqueue_item<dnn_eval_obj> *eval_objs;
+	while (!(eval_objs = eval_queue->begin_write()))
+	{
+		std::this_thread::sleep_for(std::chrono::microseconds(1));
+	}
+
+	dnn_write_eval_obj(&eval_objs->elements[0], rootPos);
+	eval_objs->count = 1;
+	eval_queue->end_write();
+
+	// •]‰¿‚ğ‘Ò‚Â
+	ipqueue_item<dnn_result_obj> *result_objs;
+	while (!(result_objs = result_queue->begin_read()))
+	{
+		std::this_thread::sleep_for(std::chrono::microseconds(1));
+	}
+	dnn_result_obj *result_obj = &result_objs->elements[0];
+
+	score = result_obj->static_value / 32000.0F;
+	dnn_move_prob best_move_prob;
+	best_move_prob.prob_scaled = 0;
+	for (size_t i = 0; i < result_obj->n_moves; i++)
+	{
+		dnn_move_prob &mp = result_obj->move_probs[i];
+		move_list.push_back((Move)mp.move);
+		value_p.push_back(mp.prob_scaled / 65535.0F);
+	}
+
+	result_queue->end_read();
 
 	// ‹Ç–Ê‚ğ–ß‚·
 	for (int i = (int)leaf.moves.size() - 1; i >= 0; i--)

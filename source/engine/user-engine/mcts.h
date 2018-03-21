@@ -1,4 +1,6 @@
 #include "../../extra/all.h"
+#include "../../../ipqueue/ipqueue/ipqueue.h"
+#include "dnn_eval_obj.h"
 
 #ifdef USER_ENGINE
 
@@ -50,4 +52,6 @@ public:
 };
 
 void pseudo_eval(Position& rootPos, TreeSelectResult& leaf, float& score, vector<Move>& move_list, vector<float>& value_p);
+void mcts_sync_eval(Position& rootPos, TreeSelectResult& leaf, float& score, vector<Move>& move_list, vector<float>& value_p,
+	ipqueue<dnn_eval_obj> *eval_queue, ipqueue<dnn_result_obj> *result_queue);
 #endif // USER_ENGINE
