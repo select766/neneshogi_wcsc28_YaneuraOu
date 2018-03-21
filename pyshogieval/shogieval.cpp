@@ -1,5 +1,4 @@
 #include "stdafx.h"
-#include "../source/shogi.h"
 #include "shogieval.h"
 
 ShogiEval::ShogiEval(int size, int batch_size)
