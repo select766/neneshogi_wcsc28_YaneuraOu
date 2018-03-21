@@ -150,8 +150,8 @@ void USI::extra_option(USI::OptionsMap & o)
 // 起動時に呼び出される。時間のかからない探索関係の初期化処理はここに書くこと。
 void Search::init()
 {
-	eval_queue = new ipqueue<dnn_eval_obj>(16, 16, std::string("neneshogi_eval"), false);
-	result_queue = new ipqueue<dnn_result_obj>(16, 16, std::string("neneshogi_result"), false);
+	eval_queue = new ipqueue<dnn_eval_obj>(0, 0, std::string("neneshogi_eval"), false);
+	result_queue = new ipqueue<dnn_result_obj>(0, 0, std::string("neneshogi_result"), false);
 }
 
 // isreadyコマンドの応答中に呼び出される。時間のかかる処理はここに書くこと。
@@ -226,8 +226,6 @@ void Thread::search()
 #endif
 
 #ifdef USER_ENGINE_SEARCH1
-const int queue_size = 16;
-const int batch_size = 16;
 
 // USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
 void user_test(Position& pos_, istringstream& is)
@@ -245,8 +243,8 @@ void USI::extra_option(USI::OptionsMap & o)
 // 起動時に呼び出される。時間のかからない探索関係の初期化処理はここに書くこと。
 void Search::init()
 {
-	eval_queue = new ipqueue<dnn_eval_obj>(queue_size, batch_size, std::string("neneshogi_eval"), false);
-	result_queue = new ipqueue<dnn_result_obj>(queue_size, batch_size, std::string("neneshogi_result"), false);
+	eval_queue = new ipqueue<dnn_eval_obj>(0, 0, std::string("neneshogi_eval"), false);
+	result_queue = new ipqueue<dnn_result_obj>(0, 0, std::string("neneshogi_result"), false);
 }
 
 // isreadyコマンドの応答中に呼び出される。時間のかかる処理はここに書くこと。
@@ -290,7 +288,7 @@ void MainThread::think()
 		eval_obj->index.m = m;
 		total_moves++;
 
-		if (write_index == batch_size)
+		if (write_index == eval_queue->batch_size())
 		{
 			eval_objs->count = write_index;
 			eval_queue->end_write();
