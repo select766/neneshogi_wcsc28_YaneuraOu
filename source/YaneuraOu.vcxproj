@@ -627,6 +627,7 @@
     <ClCompile Include="engine\user-engine\mcts.cpp" />
     <ClCompile Include="engine\user-engine\user-search.cpp" />
     <ClCompile Include="engine\user-engine\user-search_common.cpp" />
+    <ClCompile Include="engine\user-engine\user-search_mcts_async.cpp" />
     <ClCompile Include="engine\user-engine\user-search_mcts_sync.cpp" />
     <ClCompile Include="engine\user-engine\user-search_policy.cpp" />
     <ClCompile Include="engine\user-engine\user-search_search1.cpp" />

@@ -114,7 +114,7 @@ int dnn_get_move_index(const Position & pos, Move m)
 	}
 }
 
-void dnn_write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos)
+bool dnn_write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos)
 {
 	for (size_t i = 0; i < SQ_NB; i++)
 	{
@@ -129,6 +129,7 @@ void dnn_write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos)
 	eval_obj->game_ply = (uint16_t)pos.game_ply();
 
 	int m_i = 0;
+	bool not_mate = false;
 	for (auto m : MoveList<LEGAL>(pos))
 	{
 		dnn_move_index dmi;
@@ -136,8 +137,10 @@ void dnn_write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos)
 		dmi.index = dnn_get_move_index(pos, m.move);
 		eval_obj->move_indices[m_i] = dmi;
 		m_i++;
+		not_mate = true;
 	}
 	eval_obj->n_moves = m_i;
+	return not_mate;
 }
 
 #endif

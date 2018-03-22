@@ -3,7 +3,7 @@
 #include "mcts.h"
 
 int dnn_get_move_index(const Position & pos, Move m);
-void dnn_write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos);
+bool dnn_write_eval_obj(dnn_eval_obj *eval_obj, const Position &pos);
 
 TreeNode::TreeNode(TreeConfig * tree_config, TreeNode * parent, int parent_edge_index, vector<Move>& move_list, float score, vector<float>& value_p)
 	//: children(), value_p(), value_n(), value_w(), value_q()
