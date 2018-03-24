@@ -4,6 +4,9 @@
 #include "mcts.h"
 
 #ifdef USER_ENGINE_MCTS_ASYNC
+
+#define MAX_UCT_CHILDREN 16//UCTノードの子ノード数最大
+
 namespace MCTSAsync
 {
 	class NodeHashEntry
@@ -31,12 +34,12 @@ namespace MCTSAsync
 		DupEvalChain *dup_eval_chain;//複数回評価が呼ばれたとき、ここにリストをつなげて各経路でbackupする。
 		float score;
 		int n_children;
-		Move move_list[MAX_MOVES];
-		float value_n[MAX_MOVES];
-		float value_w[MAX_MOVES];
-		float value_p[MAX_MOVES];
-		float value_q[MAX_MOVES];
-		int vloss_ctr[MAX_MOVES];//virtual lossがちゃんと復帰されたか確認用
+		Move move_list[MAX_UCT_CHILDREN];
+		float value_n[MAX_UCT_CHILDREN];
+		float value_w[MAX_UCT_CHILDREN];
+		float value_p[MAX_UCT_CHILDREN];
+		float value_q[MAX_UCT_CHILDREN];
+		int vloss_ctr[MAX_UCT_CHILDREN];//virtual lossがちゃんと復帰されたか確認用
 	};
 
 	class NodeHash
@@ -177,7 +180,7 @@ void Search::init()
 void  Search::clear()
 {
 	show_error_if_dnn_queue_fail();
-	node_hash = new NodeHash(128 * 1024);
+	node_hash = new NodeHash(1024 * 1024);
 	max_select = (int)Options["nodes"];
 	tree_config.c_puct = (float)atof(((string)Options["c_puct"]).c_str());
 	tree_config.play_temperature = (float)atof(((string)Options["play_temperature"]).c_str());
@@ -245,20 +248,32 @@ void backup_tree(float leaf_score, dnn_table_index &path)
 	}
 }
 
+bool operator<(const dnn_move_prob& left, const dnn_move_prob& right) {
+	// 確率で降順ソート用
+	return left.prob_scaled > right.prob_scaled;
+}
+
 void update_on_dnn_result(dnn_result_obj *result_obj)
 {
 	dnn_table_index &path = result_obj->index;
 	// 末端ノードの評価を記録
 	UctNode &leaf_node = node_hash->nodes[path.path_indices[path.path_length - 1]];
 	leaf_node.evaled = true;
-	for (int i = 0; i < result_obj->n_moves; i++)
+	// 事前確率でソートし、上位 MAX_UCT_CHILDREN だけ記録
+	int n_moves_use = result_obj->n_moves;
+	if (n_moves_use > MAX_UCT_CHILDREN)
+	{
+		std::sort(&result_obj->move_probs[0], &result_obj->move_probs[result_obj->n_moves]);
+		n_moves_use = MAX_UCT_CHILDREN;
+	}
+	for (int i = 0; i < n_moves_use; i++)
 	{
 		dnn_move_prob &dmp = result_obj->move_probs[i];
 		leaf_node.move_list[i] = (Move)dmp.move;
 		leaf_node.value_p[i] = dmp.prob_scaled / 65535.0F;
 		// n, w, qは0初期化されている
 	}
-	leaf_node.n_children = result_obj->n_moves;
+	leaf_node.n_children = n_moves_use;
 	float score = result_obj->static_value / 32000.0F * 0.5F; // [-0.5, 0.5]
 	leaf_node.score = score;
 
