@@ -369,8 +369,12 @@
 //#define USER_ENGINE_SEARCH1
 //#define USER_ENGINE_MCTS_SYNC
 #define USER_ENGINE_MCTS_ASYNC
+#ifdef _DEBUG
+#define ENGINE_NAME "YaneuraOu user engine DEBUG"
+#else
 #define ENGINE_NAME "YaneuraOu user engine"
-#define EVAL_KPPT
+#endif
+#define EVAL_MATERIAL
 #define USE_SEE
 #endif
 
