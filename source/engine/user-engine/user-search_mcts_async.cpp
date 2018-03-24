@@ -25,14 +25,14 @@ namespace MCTSAsync
 	class UctNode
 	{
 	public:
-		int value_n_sum;
+		float value_n_sum;
 		bool terminal;
 		bool evaled;
 		DupEvalChain *dup_eval_chain;//複数回評価が呼ばれたとき、ここにリストをつなげて各経路でbackupする。
 		float score;
 		int n_children;
 		Move move_list[MAX_MOVES];
-		int value_n[MAX_MOVES];
+		float value_n[MAX_MOVES];
 		float value_w[MAX_MOVES];
 		float value_p[MAX_MOVES];
 		float value_q[MAX_MOVES];
@@ -56,6 +56,14 @@ namespace MCTSAsync
 			uct_hash_mask = (unsigned int)uct_hash_size - 1;
 			entries = new NodeHashEntry[uct_hash_size]();
 			nodes = new UctNode[uct_hash_size]();
+		}
+
+		void clear()
+		{
+			used = 0;
+			enough_size = true;
+			memset(entries, 0, sizeof(NodeHashEntry)*uct_hash_size);
+			memset(nodes, 0, sizeof(UctNode)*uct_hash_size);
 		}
 
 		int find_or_create_index(const Position &pos, bool *created)
@@ -139,6 +147,7 @@ static ipqueue_item<dnn_eval_obj> *eval_objs = nullptr;
 static int n_batch_put = 0;
 static int n_batch_get = 0;
 static TreeConfig tree_config;
+static int max_select = 1000;
 
 // USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
 void user_test(Position& pos_, istringstream& is)
@@ -151,6 +160,11 @@ void user_test(Position& pos_, istringstream& is)
 // USI::init()のなかからコールバックされる。
 void USI::extra_option(USI::OptionsMap & o)
 {
+	o["nodes"] << Option(1000, 1, 100000);
+	o["c_puct"] << Option("1.0");
+	o["play_temperature"] << Option("1.0");
+	o["virtual_loss"] << Option("1.0");
+	o["clear_table"] << Option(false);
 }
 
 // 起動時に呼び出される。時間のかからない探索関係の初期化処理はここに書くこと。
@@ -164,9 +178,11 @@ void  Search::clear()
 {
 	show_error_if_dnn_queue_fail();
 	node_hash = new NodeHash(128 * 1024);
-	tree_config.c_puct = 10.0;
-	tree_config.play_temperature = 0.1;
-	tree_config.virtual_loss = 1.0;
+	max_select = (int)Options["nodes"];
+	tree_config.c_puct = (float)atof(((string)Options["c_puct"]).c_str());
+	tree_config.play_temperature = (float)atof(((string)Options["play_temperature"]).c_str());
+	tree_config.virtual_loss = (float)atof(((string)Options["virtual_loss"]).c_str());
+	tree_config.clear_table_before_search = (bool)Options["clear_table"];
 #ifdef _DEBUG
 	std::this_thread::sleep_for(std::chrono::seconds(5));
 #endif
@@ -243,7 +259,7 @@ void update_on_dnn_result(dnn_result_obj *result_obj)
 		// n, w, qは0初期化されている
 	}
 	leaf_node.n_children = result_obj->n_moves;
-	float score = result_obj->static_value / 32000.0F;
+	float score = result_obj->static_value / 32000.0F * 0.5F; // [-0.5, 0.5]
 	leaf_node.score = score;
 
 	backup_tree(score, path);
@@ -264,7 +280,7 @@ void update_on_mate(dnn_table_index &path)
 	leaf_node.evaled = true;
 	leaf_node.terminal = true;
 	float score = -1.0F;
-	sync_cout << "info string update_on_mate" << sync_endl;
+	leaf_node.score = score;
 	backup_tree(score, path);
 }
 
@@ -272,7 +288,6 @@ void update_on_terminal(dnn_table_index &path)
 {
 	// 到達ノードがterminalだったときの処理
 	UctNode &leaf_node = node_hash->nodes[path.path_indices[path.path_length - 1]];
-	sync_cout << "info string update_on_terminal" << sync_endl;
 	backup_tree(leaf_node.score, path);
 }
 
@@ -484,10 +499,13 @@ void print_pv(int root_index, Position &rootPos)
 // そのあとslaveスレッドを終了させ、ベストな指し手を返すこと。
 void MainThread::think()
 {
+	if (tree_config.clear_table_before_search)
+	{
+		node_hash->clear();
+	}
 	int root_index = get_or_create_root(rootPos);
 	UctNode &root_node = node_hash->nodes[root_index];
 	Move bestMove = MOVE_RESIGN;
-	int max_select = 1000;
 	int n_select = 0;
 	if (!root_node.terminal)
 	{
@@ -544,10 +562,10 @@ void MainThread::think()
 		print_pv(root_index, rootPos);
 	}
 
-	sync_cout << "bestmove " << bestMove << sync_endl;
 #ifdef _DEBUG
-	std::this_thread::sleep_for(std::chrono::seconds(2));
+	std::this_thread::sleep_for(std::chrono::seconds(5));
 #endif
+	sync_cout << "bestmove " << bestMove << sync_endl;
 
 }
 
