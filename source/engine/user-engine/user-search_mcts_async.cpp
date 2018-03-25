@@ -137,7 +137,11 @@ namespace MCTSAsync
 			}
 		}
 
-
+		~NodeHash()
+		{
+			delete[] entries;
+			delete[] nodes;
+		}
 	};
 
 }
@@ -180,8 +184,20 @@ void Search::init()
 void  Search::clear()
 {
 	show_error_if_dnn_queue_fail();
-	node_hash = new NodeHash(1024 * 1024);
+	if (node_hash)
+	{
+		delete node_hash;
+		node_hash = nullptr;
+	}
 	max_select = (int)Options["nodes"];
+	int node_hash_least_size = max_select * 256;
+	int node_hash_size = 1;
+	while (node_hash_size < node_hash_least_size)
+	{
+		node_hash_size <<= 1;
+	}
+
+	node_hash = new NodeHash(node_hash_size);
 	tree_config.c_puct = (float)atof(((string)Options["c_puct"]).c_str());
 	tree_config.play_temperature = (float)atof(((string)Options["play_temperature"]).c_str());
 	tree_config.virtual_loss = (float)atof(((string)Options["virtual_loss"]).c_str());
