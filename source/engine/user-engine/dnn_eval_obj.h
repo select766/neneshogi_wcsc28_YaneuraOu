@@ -26,12 +26,13 @@ public:
 #endif
 
 #ifdef USER_ENGINE_MCTS_ASYNC
+const int MAX_SEARCH_PATH_LENGTH = 64;
 class dnn_table_index
 {
 public:
 	int path_length;
-	int path_indices[64];//path_indices[path_length-1]は新規末端ノード
-	uint16_t path_child_indices[64];//path_child_indices[path_length-1]は無効
+	int path_indices[MAX_SEARCH_PATH_LENGTH];//path_indices[path_length-1]は新規末端ノード
+	uint16_t path_child_indices[MAX_SEARCH_PATH_LENGTH];//path_child_indices[path_length-1]は無効
 };
 #endif
 

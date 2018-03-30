@@ -411,9 +411,18 @@ int select_edge(UctNode &node)
 
 int total_dup_eval = 0;
 bool dup_eval_flag = false;
+int current_max_depth = 0;
 
 void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 {
+	if (path.path_length >= MAX_SEARCH_PATH_LENGTH)
+	{
+		// ç“úŽè–Í—l‚Ì‹Ø‚È‚Ç‚Å‹N‚±‚é‚©‚à‚µ‚ê‚È‚¢‚Ì‚Åˆê‰ž‘Îô
+		// ˆø‚«•ª‚¯‚Æ‚Ý‚È‚µ‚ÄI—¹‚·‚é
+		backup_tree(0.0, path);
+		return;
+	}
+
 	UctNode &node = node_hash->nodes[node_index];
 	if (node.terminal)
 	{
@@ -457,6 +466,10 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 	path.path_child_indices[path.path_length - 1] = edge;
 	path.path_indices[path.path_length] = child_index;
 	path.path_length++;
+	if (path.path_length > current_max_depth)
+	{
+		current_max_depth = path.path_length;
+	}
 
 	if (created)
 	{
@@ -521,7 +534,7 @@ void print_pv(int root_index, Position &rootPos)
 	UctNode *root_node = &node_hash->nodes[root_index];
 	vector<Move> pv;
 	float winrate = get_pv(root_index, pv, rootPos);
-	sync_cout << "info nodes " << root_node->value_n_sum << " score cp " << (int)(winrate * 10000.0) << " pv";
+	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size() << " score cp " << (int)(winrate * 10000.0) << " pv";
 	for (auto m : pv)
 	{
 		std::cout << " " << m;
@@ -609,6 +622,7 @@ void MainThread::think()
 		}
 		std::cout << sync_endl;
 		sync_cout << "info string dup eval=" << total_dup_eval << sync_endl;
+		sync_cout << "info string max depth=" << current_max_depth << sync_endl;
 		print_pv(root_index, rootPos);
 	}
 
