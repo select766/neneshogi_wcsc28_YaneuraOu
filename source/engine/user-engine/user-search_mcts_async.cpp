@@ -540,16 +540,19 @@ void MainThread::think()
 	int n_select = 0;
 	if (!root_node.terminal)
 	{
+		sync_cout << "info string prob ";
 		float best_p = -10.0;
 		Move best_p_move = MOVE_RESIGN;
 		for (size_t i = 0; i < root_node.n_children; i++)
 		{
+			std::cout << root_node.move_list[i] << "(" << (int)(root_node.value_p[i] * 100) << "%) ";
 			if (root_node.value_p[i] > best_p)
 			{
 				best_p = root_node.value_p[i];
 				best_p_move = root_node.move_list[i];
 			}
 		}
+		std::cout << sync_endl;
 		sync_cout << "info score cp " << (int)(root_node.score * 10000) << " pv " << best_p_move << sync_endl;
 		total_dup_eval = 0;
 		while (n_select < max_select || n_batch_get < n_batch_put)
@@ -581,7 +584,7 @@ void MainThread::think()
 		sync_cout << "info string n ";
 		for (size_t i = 0; i < root_node.n_children; i++)
 		{
-			std::cout << root_node.value_n[i] << " ";
+			std::cout << root_node.value_n[i] << "(" << root_node.move_list[i] << ") ";
 			if (root_node.value_n[i] > best_n)
 			{
 				best_n = root_node.value_n[i];
