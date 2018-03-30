@@ -174,6 +174,7 @@ void USI::extra_option(USI::OptionsMap & o)
 	o["c_puct"] << Option("1.0");
 	o["play_temperature"] << Option("1.0");
 	o["virtual_loss"] << Option("1.0");
+	o["value_scale"] << Option("1.0");
 	o["clear_table"] << Option(false);
 }
 
@@ -209,6 +210,7 @@ void  Search::clear()
 	tree_config.c_puct = (float)atof(((string)Options["c_puct"]).c_str());
 	tree_config.play_temperature = (float)atof(((string)Options["play_temperature"]).c_str());
 	tree_config.virtual_loss = (float)atof(((string)Options["virtual_loss"]).c_str());
+	tree_config.value_scale = (float)atof(((string)Options["value_scale"]).c_str());
 	tree_config.clear_table_before_search = (bool)Options["clear_table"];
 #ifdef _DEBUG
 	std::this_thread::sleep_for(std::chrono::seconds(5));
@@ -298,7 +300,7 @@ void update_on_dnn_result(dnn_result_obj *result_obj)
 		// n, w, qは0初期化されている
 	}
 	leaf_node.n_children = n_moves_use;
-	float score = result_obj->static_value / 32000.0F; // [-1.0, 1.0]
+	float score = result_obj->static_value / 32000.0F * tree_config.value_scale; // [-1.0, 1.0]
 	leaf_node.score = score;
 
 	backup_tree(score, path);
@@ -536,12 +538,30 @@ float get_pv(int cur_index, vector<Move> &pv, Position &pos)
 	return winrate;
 }
 
+int winrate_to_cp(float winrate)
+{
+	// 勝率-1.0~1.0を評価値に変換する
+	// tanhの逆関数 (1/2)*log((1+x)/(1-x))
+	// 1, -1ならinfになるので丸める
+	// 1歩=100だが、そういう評価関数を作っていないためスケールはそれっぽく見えるものにするほかない
+	float v = (log1pf(winrate) - log1pf(-winrate)) * 600;
+	if (v < -30000)
+	{
+		v = -30000;
+	}
+	else if (v > 30000)
+	{
+		v = 30000;
+	}
+	return (int)v;
+}
+
 void print_pv(int root_index, Position &rootPos)
 {
 	UctNode *root_node = &node_hash->nodes[root_index];
 	vector<Move> pv;
 	float winrate = get_pv(root_index, pv, rootPos);
-	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size() << " score cp " << (int)(winrate * 10000.0) << " pv";
+	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size() << " score cp " << winrate_to_cp(winrate) << " pv";
 	for (auto m : pv)
 	{
 		std::cout << " " << m;
@@ -579,7 +599,7 @@ void MainThread::think()
 			}
 		}
 		std::cout << sync_endl;
-		sync_cout << "info score cp " << (int)(root_node.score * 10000) << " pv " << best_p_move << sync_endl;
+		sync_cout << "info score cp " << winrate_to_cp(best_p) << " pv " << best_p_move << sync_endl;
 		total_dup_eval = 0;
 		while (n_select < max_select || n_batch_get < n_batch_put)
 		{

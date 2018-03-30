@@ -11,6 +11,7 @@ public:
 	float c_puct;
 	float play_temperature;
 	float virtual_loss;
+	float value_scale;
 	bool clear_table_before_search;
 };
 
