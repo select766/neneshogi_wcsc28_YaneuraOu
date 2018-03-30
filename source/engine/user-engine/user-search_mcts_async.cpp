@@ -1,5 +1,6 @@
 #include "../../extra/all.h"
 #include <thread>
+#include <chrono>
 #include "user-search_common.h"
 #include "mcts.h"
 
@@ -155,6 +156,7 @@ static int n_batch_put = 0;
 static int n_batch_get = 0;
 static TreeConfig tree_config;
 static int max_select = 1000;
+static int pv_interval = 1000;
 
 // USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
 void user_test(Position& pos_, istringstream& is)
@@ -167,6 +169,7 @@ void user_test(Position& pos_, istringstream& is)
 // USI::init()のなかからコールバックされる。
 void USI::extra_option(USI::OptionsMap & o)
 {
+	o["PvInterval"] << Option(300, 0, 100000);//PV出力する間隔[ms]
 	o["nodes"] << Option(1000, 1, 100000);
 	o["c_puct"] << Option("1.0");
 	o["play_temperature"] << Option("1.0");
@@ -190,6 +193,7 @@ void  Search::clear()
 		node_hash = nullptr;
 	}
 	max_select = (int)Options["nodes"];
+	pv_interval = (int)Options["PvInterval"];
 	int node_hash_least_size = max_select * 256;
 	int node_hash_size = 1;
 	while (node_hash_size < node_hash_least_size)
@@ -515,9 +519,10 @@ float get_pv(int cur_index, vector<Move> &pv, Position &pos)
 
 void print_pv(int root_index, Position &rootPos)
 {
+	UctNode *root_node = &node_hash->nodes[root_index];
 	vector<Move> pv;
 	float winrate = get_pv(root_index, pv, rootPos);
-	sync_cout << "info score cp " << (int)(winrate * 10000.0) << " pv";
+	sync_cout << "info nodes " << root_node->value_n_sum << " score cp " << (int)(winrate * 10000.0) << " pv";
 	for (auto m : pv)
 	{
 		std::cout << " " << m;
@@ -530,6 +535,8 @@ void print_pv(int root_index, Position &rootPos)
 // そのあとslaveスレッドを終了させ、ベストな指し手を返すこと。
 void MainThread::think()
 {
+	std::chrono::steady_clock::time_point search_begin_time = std::chrono::steady_clock::now();
+	long long next_pv_time = 0;
 	if (tree_config.clear_table_before_search)
 	{
 		node_hash->clear();
@@ -577,7 +584,17 @@ void MainThread::think()
 
 			if (n_batch_get < n_batch_put)
 			{
-				receive_result(n_batch_put - n_batch_get >= 1);
+				if (receive_result(n_batch_put - n_batch_get >= 1))
+				{
+					// 頻繁に時刻取得をするのも無駄そうなのでここで
+					std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+					std::chrono::milliseconds elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds> (now - search_begin_time);
+					if (elapsed_time.count() >= next_pv_time)
+					{
+						print_pv(root_index, rootPos);
+						next_pv_time += pv_interval;
+					}
+				}
 			}
 		}
 		float best_n = -10.0;
