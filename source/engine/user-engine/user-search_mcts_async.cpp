@@ -170,6 +170,7 @@ void user_test(Position& pos_, istringstream& is)
 void USI::extra_option(USI::OptionsMap & o)
 {
 	o["PvInterval"] << Option(300, 0, 100000);//PV出力する間隔[ms]
+	o["MCTSHash"] << Option(1, 1, 1024);//MCTSのハッシュテーブルのサイズ[GB]上限。
 	o["c_puct"] << Option("1.0");
 	o["play_temperature"] << Option("1.0");
 	o["virtual_loss"] << Option("1.0");
@@ -193,14 +194,18 @@ void  Search::clear()
 	}
 	max_select = (int)Options["NodesLimit"];
 	pv_interval = (int)Options["PvInterval"];
-	int node_hash_least_size = max_select * 256;
-	int node_hash_size = 1;
-	while (node_hash_size < node_hash_least_size)
+	unsigned long long hash_max_gb = (unsigned int)Options["MCTSHash"];//このサイズ以下で、2^n要素数を選択
+	unsigned long long hash_max_bytes = hash_max_gb * (1024 * 1024 * 1024);
+	unsigned long long node_hash_size = 1;
+	while (node_hash_size * (sizeof(NodeHashEntry) + sizeof(UctNode)) <= hash_max_bytes)
 	{
 		node_hash_size <<= 1;
 	}
+	node_hash_size >>= 1;
 
-	node_hash = new NodeHash(node_hash_size);
+	sync_cout << "info string node hash " << (node_hash_size / (1024 * 1024)) << "M elements" << sync_endl;
+
+	node_hash = new NodeHash((int)node_hash_size);
 	tree_config.c_puct = (float)atof(((string)Options["c_puct"]).c_str());
 	tree_config.play_temperature = (float)atof(((string)Options["play_temperature"]).c_str());
 	tree_config.virtual_loss = (float)atof(((string)Options["virtual_loss"]).c_str());
