@@ -596,7 +596,19 @@ void MainThread::think()
 
 			if (n_batch_get < n_batch_put)
 			{
-				if (receive_result(n_batch_put - n_batch_get >= 1))
+				int pending_batches = n_batch_put - n_batch_get;
+				bool block = false;
+				if (root_node.value_n_sum < 10000)
+				{
+					// 探索回数が少ないうちに複数のバッチを評価待ちにすると、重複が多くなりバイアスが大きくなる
+					block = true;
+				}
+				else if (pending_batches >= 2)
+				{
+					block = true;
+				}
+
+				if (receive_result(block))
 				{
 					// 頻繁に時刻取得をするのも無駄そうなのでここで
 					std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
