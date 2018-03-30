@@ -39,8 +39,8 @@ namespace MCTSAsync
 		float value_n[MAX_UCT_CHILDREN];
 		float value_w[MAX_UCT_CHILDREN];
 		float value_p[MAX_UCT_CHILDREN];
-		float value_q[MAX_UCT_CHILDREN];
-		int vloss_ctr[MAX_UCT_CHILDREN];//virtual lossがちゃんと復帰されたか確認用
+		//float value_q[MAX_UCT_CHILDREN];
+		//int vloss_ctr[MAX_UCT_CHILDREN];//virtual lossがちゃんと復帰されたか確認用
 	};
 
 	class NodeHash
@@ -261,8 +261,8 @@ void backup_tree(float leaf_score, dnn_table_index &path)
 		inner_node.value_n[edge] = new_value_n;
 		float new_value_w = inner_node.value_w[edge] + score + tree_config.virtual_loss;
 		inner_node.value_w[edge] = new_value_w;
-		inner_node.vloss_ctr[edge]--;
-		inner_node.value_q[edge] = new_value_w / new_value_n;
+		// inner_node.vloss_ctr[edge]--;
+		// inner_node.value_q[edge] = new_value_w / new_value_n;
 		inner_node.value_n_sum += 1.0F - tree_config.virtual_loss;
 	}
 }
@@ -392,13 +392,15 @@ int get_or_create_root(const Position &pos)
 
 int select_edge(UctNode &node)
 {
-	float n_sum_sqrt = sqrt((float)node.value_n_sum) + 0.001F;
+	float n_sum_sqrt = sqrt((float)node.value_n_sum) + 0.001F;//完全に0だと最初の1手が事前確率に沿わなくなる
 	int best_index = 0;
 	float best_value = -100.0F;
 	for (size_t i = 0; i < node.n_children; i++)
 	{
-		float value_u = node.value_p[i] / (node.value_n[i] + 1) * tree_config.c_puct * n_sum_sqrt;
-		float value_sum = node.value_q[i] + value_u;
+		float value_n = node.value_n[i];
+		float value_u = node.value_p[i] / (value_n + 1) * tree_config.c_puct * n_sum_sqrt;
+		float value_q = node.value_w[i] / (value_n + 1e-8F);//0除算回避
+		float value_sum = value_q + value_u;
 		if (value_sum > best_value)
 		{
 			best_value = value_sum;
@@ -453,8 +455,8 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 	node.value_n[edge] += tree_config.virtual_loss;
 	node.value_n_sum += tree_config.virtual_loss;
 	node.value_w[edge] -= tree_config.virtual_loss;
-	node.vloss_ctr[edge]++;
-	node.value_q[edge] = node.value_w[edge] / node.value_n[edge];
+	// node.vloss_ctr[edge]++;
+	// node.value_q[edge] = node.value_w[edge] / node.value_n[edge];
 
 	Move m = node.move_list[edge];
 	StateInfo si;
