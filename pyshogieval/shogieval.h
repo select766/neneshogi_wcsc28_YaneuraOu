@@ -13,6 +13,8 @@ class ShogiEval
 	ipqueue<dnn_eval_obj> *eval_queue;
 	ipqueue<dnn_result_obj> *result_queue;
 public:
+	static const int MOVE_SIZE = MAX_MOVES;
+	static const int DNN_INPUT_CHANNEL = 86;
 	ShogiEval(int size, int batch_size);
 	py::tuple get(py::array_t<float, py::array::c_style> dnn_input, py::array_t<uint16_t, py::array::c_style> move_and_index,
 		py::array_t<uint16_t, py::array::c_style> n_moves);

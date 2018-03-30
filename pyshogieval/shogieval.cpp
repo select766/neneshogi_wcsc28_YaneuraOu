@@ -25,7 +25,7 @@ static void fill_channel_range(float* buf, int ch_begin, int ch_end, float value
 
 static void get_board_array(float* buf, dnn_eval_obj& eval_obj)
 {
-	fill_channel_range(buf, 0, 86, 0.0F);
+	fill_channel_range(buf, 0, ShogiEval::DNN_INPUT_CHANNEL, 0.0F);
 	if (eval_obj.side_to_move == BLACK) {
 		for (Square i = SQ_ZERO; i < SQ_NB; i++) {
 			Piece p = (Piece)eval_obj.board[i];
@@ -117,8 +117,8 @@ py::tuple ShogiEval::get(py::array_t<float, py::array::c_style> dnn_input, py::a
 		get_board_array(dnn_input_data, eval_objs->elements[i]);
 		*n_moves_data = get_move_and_index_array(move_and_index_data, eval_objs->elements[i]);
 		dnn_table_indexes[i] = eval_objs->elements[i].index;
-		dnn_input_data += 86 * 9 * 9;
-		move_and_index_data += 600 * 2;
+		dnn_input_data += ShogiEval::DNN_INPUT_CHANNEL * 9 * 9;
+		move_and_index_data += MOVE_SIZE * 2;
 		n_moves_data++;
 	}
 
@@ -146,11 +146,11 @@ void ShogiEval::put(int count, std::string dnn_table_indexes, py::array_t<uint16
 	const uint16_t *n_moves_data = n_moves.data();
 	for (size_t i = 0; i < count; i++)
 	{
-		memcpy(result_objs->elements[i].move_probs, move_and_prob_data, sizeof(uint16_t) * 600 * 2);
+		memcpy(result_objs->elements[i].move_probs, move_and_prob_data, sizeof(uint16_t) * MOVE_SIZE * 2);
 		result_objs->elements[i].index = dnn_table_indexes_casted[i];
 		result_objs->elements[i].n_moves = *n_moves_data;
 		result_objs->elements[i].static_value = *static_value_data;
-		move_and_prob_data += 600 * 2;
+		move_and_prob_data += MOVE_SIZE * 2;
 		n_moves_data++;
 		static_value_data++;
 	}
