@@ -170,7 +170,6 @@ void user_test(Position& pos_, istringstream& is)
 void USI::extra_option(USI::OptionsMap & o)
 {
 	o["PvInterval"] << Option(300, 0, 100000);//PVo—Í‚·‚éŠÔŠu[ms]
-	o["nodes"] << Option(1000, 1, 100000);
 	o["c_puct"] << Option("1.0");
 	o["play_temperature"] << Option("1.0");
 	o["virtual_loss"] << Option("1.0");
@@ -192,7 +191,7 @@ void  Search::clear()
 		delete node_hash;
 		node_hash = nullptr;
 	}
-	max_select = (int)Options["nodes"];
+	max_select = (int)Options["NodesLimit"];
 	pv_interval = (int)Options["PvInterval"];
 	int node_hash_least_size = max_select * 256;
 	int node_hash_size = 1;
