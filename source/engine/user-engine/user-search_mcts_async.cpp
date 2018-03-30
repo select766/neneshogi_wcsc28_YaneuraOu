@@ -298,7 +298,7 @@ void update_on_dnn_result(dnn_result_obj *result_obj)
 		// n, w, q‚Í0‰Šú‰»‚³‚ê‚Ä‚¢‚é
 	}
 	leaf_node.n_children = n_moves_use;
-	float score = result_obj->static_value / 32000.0F * 0.5F; // [-0.5, 0.5]
+	float score = result_obj->static_value / 32000.0F; // [-1.0, 1.0]
 	leaf_node.score = score;
 
 	backup_tree(score, path);
