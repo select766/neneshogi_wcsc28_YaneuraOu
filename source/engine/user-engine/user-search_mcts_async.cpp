@@ -176,6 +176,7 @@ void USI::extra_option(USI::OptionsMap & o)
 	o["play_temperature"] << Option("1.0");
 	o["softmax"] << Option("1.0");
 	o["value_scale"] << Option("1.0");
+	o["value_slope"] << Option("1.0");
 	o["virtual_loss"] << Option("1.0");
 	o["clear_table"] << Option(false);
 	o["model"] << Option("<empty>");
@@ -233,8 +234,8 @@ void  Search::clear()
 		dnn_system_command += std::to_string((int)Options["batch_size"]);
 		dnn_system_command += " --softmax ";
 		dnn_system_command += (string)Options["softmax"];
-		dnn_system_command += " --value_scale ";
-		dnn_system_command += (string)Options["value_scale"];
+		dnn_system_command += " --value_slope ";
+		dnn_system_command += (string)Options["value_slope"];
 		dnn_system_command += " --gpu_min ";
 		dnn_system_command += std::to_string((int)Options["gpu_min"]);
 		dnn_system_command += " --gpu_max ";
