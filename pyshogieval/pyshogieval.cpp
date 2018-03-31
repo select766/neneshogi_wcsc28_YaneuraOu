@@ -11,7 +11,7 @@ PYBIND11_MODULE(pyshogieval, m) {
 	m.doc() = "Inter-process communication module for neneshogi evaluation";
 
 	py::class_<ShogiEval>(m, "ShogiEval")
-		.def(py::init<int, int>())
+		.def(py::init<int, int, std::string>())
 		.def("get", &ShogiEval::get)
 		.def("put", &ShogiEval::put)
 		.def_readonly_static("MOVE_SIZE", &ShogiEval::MOVE_SIZE)

@@ -5,10 +5,10 @@
 ipqueue<dnn_eval_obj> *eval_queue;
 ipqueue<dnn_result_obj> *result_queue;
 
-void init_dnn_queues()
+void init_dnn_queues(const string prefix)
 {
-	eval_queue = new ipqueue<dnn_eval_obj>(0, 0, std::string("neneshogi_eval"), false);
-	result_queue = new ipqueue<dnn_result_obj>(0, 0, std::string("neneshogi_result"), false);
+	eval_queue = new ipqueue<dnn_eval_obj>(0, 0, prefix + "_eval", false);
+	result_queue = new ipqueue<dnn_result_obj>(0, 0, prefix + "_result", false);
 }
 
 void show_error_if_dnn_queue_fail()

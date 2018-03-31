@@ -157,6 +157,7 @@ static int n_batch_get = 0;
 static TreeConfig tree_config;
 static int max_select = 1000;
 static int pv_interval = 1000;
+static bool dnn_initialized = false;
 
 // USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
 void user_test(Position& pos_, istringstream& is)
@@ -173,21 +174,25 @@ void USI::extra_option(USI::OptionsMap & o)
 	o["MCTSHash"] << Option(1, 1, 1024);//MCTSのハッシュテーブルのサイズ[GB]上限。
 	o["c_puct"] << Option("1.0");
 	o["play_temperature"] << Option("1.0");
-	o["virtual_loss"] << Option("1.0");
+	o["softmax"] << Option("1.0");
 	o["value_scale"] << Option("1.0");
+	o["virtual_loss"] << Option("1.0");
 	o["clear_table"] << Option(false);
+	o["model"] << Option("<empty>");
+	o["batch_size"] << Option(16, 1, 65536);
+	o["process_per_gpu"] << Option(1, 1, 10);
+	o["gpu_max"] << Option(0, -1, 16);
+	o["gpu_min"] << Option(0, -1, 16);
 }
 
 // 起動時に呼び出される。時間のかからない探索関係の初期化処理はここに書くこと。
 void Search::init()
 {
-	init_dnn_queues();
 }
 
 // isreadyコマンドの応答中に呼び出される。時間のかかる処理はここに書くこと。
 void  Search::clear()
 {
-	show_error_if_dnn_queue_fail();
 	if (node_hash)
 	{
 		delete node_hash;
@@ -212,6 +217,49 @@ void  Search::clear()
 	tree_config.virtual_loss = (float)atof(((string)Options["virtual_loss"]).c_str());
 	tree_config.value_scale = (float)atof(((string)Options["value_scale"]).c_str());
 	tree_config.clear_table_before_search = (bool)Options["clear_table"];
+
+	if (!dnn_initialized)
+	{
+		// http://tech.ckme.co.jp/cpp/cpp_pid.shtml
+		// 重複しないmutex名称としてプロセスidを利用
+		unsigned int pid = (unsigned int)GetCurrentProcessId();//windows dependent!
+		string queue_name_prefix("neneshogi_");
+		queue_name_prefix += std::to_string(pid);
+		sync_cout << "info string starting dnn process" << sync_endl;
+		string dnn_system_command("python -m neneshogi.process_pyshogieval_frontend");
+		dnn_system_command += " ";
+		dnn_system_command += (string)Options["model"];
+		dnn_system_command += " --batch_size ";
+		dnn_system_command += std::to_string((int)Options["batch_size"]);
+		dnn_system_command += " --softmax ";
+		dnn_system_command += (string)Options["softmax"];
+		dnn_system_command += " --value_scale ";
+		dnn_system_command += (string)Options["value_scale"];
+		dnn_system_command += " --gpu_min ";
+		dnn_system_command += std::to_string((int)Options["gpu_min"]);
+		dnn_system_command += " --gpu_max ";
+		dnn_system_command += std::to_string((int)Options["gpu_max"]);
+		dnn_system_command += " --process_per_gpu ";
+		dnn_system_command += std::to_string((int)Options["process_per_gpu"]);
+		dnn_system_command += " --queue_prefix ";
+		dnn_system_command += queue_name_prefix;
+		// このプロセスが終了したら、DNNプロセスも終了する
+		dnn_system_command += " --host_pid ";
+		dnn_system_command += std::to_string(pid);
+		if (system(dnn_system_command.c_str()) == 0)
+		{
+			sync_cout << "info string started dnn process" << sync_endl;
+			dnn_initialized = true;
+		}
+		else
+		{
+			sync_cout << "info string FAILED to start dnn process!" << sync_endl;
+		}
+		init_dnn_queues(queue_name_prefix);
+	}
+
+	show_error_if_dnn_queue_fail();
+
 #ifdef _DEBUG
 	std::this_thread::sleep_for(std::chrono::seconds(5));
 #endif

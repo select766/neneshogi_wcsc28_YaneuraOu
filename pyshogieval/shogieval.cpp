@@ -1,10 +1,10 @@
 #include "stdafx.h"
 #include "shogieval.h"
 
-ShogiEval::ShogiEval(int size, int batch_size)
+ShogiEval::ShogiEval(int size, int batch_size, std::string name_prefix)
 {
-	eval_queue = new ipqueue<dnn_eval_obj>(size, batch_size, std::string("neneshogi_eval"), true);
-	result_queue = new ipqueue<dnn_result_obj>(size, batch_size, std::string("neneshogi_result"), true);
+	eval_queue = new ipqueue<dnn_eval_obj>(size, batch_size, name_prefix + "_eval", true);
+	result_queue = new ipqueue<dnn_result_obj>(size, batch_size, name_prefix + "_result", true);
 }
 
 
