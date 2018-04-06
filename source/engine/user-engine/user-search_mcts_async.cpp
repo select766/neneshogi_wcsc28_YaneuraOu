@@ -6,7 +6,7 @@
 
 #ifdef USER_ENGINE_MCTS_ASYNC
 
-#define MAX_UCT_CHILDREN 16//UCTノードの子ノード数最大
+#define MAX_UCT_CHILDREN 64//UCTノードの子ノード数最大
 
 namespace MCTSAsync
 {
@@ -158,6 +158,8 @@ static TreeConfig tree_config;
 static int max_select = 1000;
 static int pv_interval = 1000;
 static bool dnn_initialized = false;
+static std::chrono::steady_clock::time_point search_begin_time;
+static float search_begin_nodes;
 
 // USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
 void user_test(Position& pos_, istringstream& is)
@@ -210,7 +212,7 @@ void  Search::clear()
 	}
 	node_hash_size >>= 1;
 
-	sync_cout << "info string node hash " << (node_hash_size / (1024 * 1024)) << "M elements" << sync_endl;
+	sync_cout << "info string node hash " << (node_hash_size / (1024 * 1024)) << "M elements (Max " << MAX_UCT_CHILDREN << "moves / node)" << sync_endl;
 
 	node_hash = new NodeHash((int)node_hash_size);
 	tree_config.c_puct = (float)atof(((string)Options["c_puct"]).c_str());
@@ -610,7 +612,14 @@ void print_pv(int root_index, Position &rootPos)
 	UctNode *root_node = &node_hash->nodes[root_index];
 	vector<Move> pv;
 	float winrate = get_pv(root_index, pv, rootPos);
-	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size() << " score cp " << winrate_to_cp(winrate) << " pv";
+	float nodes_from_begin = root_node->value_n_sum - search_begin_nodes;
+	std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+	std::chrono::milliseconds elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds> (now - search_begin_time);
+	long long elapsed_ms = elapsed_time.count();
+	elapsed_ms++;//0除算回避
+	float nps = nodes_from_begin * 1000.0 / elapsed_ms;
+	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size() << " score cp " << winrate_to_cp(winrate)
+		<< " time " << (int)elapsed_ms << " nps " << (int)nps << " pv";
 	for (auto m : pv)
 	{
 		std::cout << " " << m;
@@ -623,7 +632,7 @@ void print_pv(int root_index, Position &rootPos)
 // そのあとslaveスレッドを終了させ、ベストな指し手を返すこと。
 void MainThread::think()
 {
-	std::chrono::steady_clock::time_point search_begin_time = std::chrono::steady_clock::now();
+	search_begin_time = std::chrono::steady_clock::now();
 	long long next_pv_time = 0;
 	if (tree_config.clear_table_before_search)
 	{
@@ -635,6 +644,7 @@ void MainThread::think()
 	int n_select = 0;
 	if (!root_node.terminal)
 	{
+		search_begin_nodes = root_node.value_n_sum;
 		sync_cout << "info string prob ";
 		float best_p = -10.0;
 		Move best_p_move = MOVE_RESIGN;
