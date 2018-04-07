@@ -618,7 +618,7 @@ void print_pv(int root_index, Position &rootPos)
 	long long elapsed_ms = elapsed_time.count();
 	elapsed_ms++;//0œŽZ‰ñ”ð
 	float nps = nodes_from_begin * 1000.0 / elapsed_ms;
-	int hashfull = node_hash->used * 1000 / node_hash->uct_hash_size;
+	int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
 	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size() << " score cp " << winrate_to_cp(winrate)
 		<< " time " << (int)elapsed_ms << " nps " << (int)nps << " hashfull " << hashfull << " pv";
 	for (auto m : pv)
