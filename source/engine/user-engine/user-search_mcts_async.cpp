@@ -6,7 +6,7 @@
 
 #ifdef USER_ENGINE_MCTS_ASYNC
 
-#define MAX_UCT_CHILDREN 64//UCTノードの子ノード数最大
+#define MAX_UCT_CHILDREN 16//UCTノードの子ノード数最大
 
 namespace MCTSAsync
 {
