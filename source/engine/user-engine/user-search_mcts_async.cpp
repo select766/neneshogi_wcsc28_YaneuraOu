@@ -307,7 +307,7 @@ bool enqueue_pos(const Position &pos, dnn_table_index &path)
 	return not_mate;
 }
 
-
+// treeのbackup操作。リーフノードが既存の終端ノードだった時はこれを直接呼ぶ。
 void backup_tree(float leaf_score, dnn_table_index &path)
 {
 	float score = leaf_score;
@@ -377,13 +377,6 @@ void update_on_mate(dnn_table_index &path)
 	float score = -1.0F;
 	leaf_node.score = score;
 	backup_tree(score, path);
-}
-
-void update_on_terminal(dnn_table_index &path)
-{
-	// 到達ノードがterminalだったときの処理
-	UctNode &leaf_node = node_hash->nodes[path.path_indices[path.path_length - 1]];
-	backup_tree(leaf_node.score, path);
 }
 
 bool receive_result(bool block)
@@ -491,8 +484,34 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 	{
 		// 詰みノード
 		// 評価は不要で、親へ評価値を再度伝播する
-		update_on_terminal(path);
+		backup_tree(-1.0, path);
 		return;
+	}
+
+	if (path.path_length > 1) // ルートノード自体を千日手とは判定しない
+	{
+		RepetitionState rep_state = pos.is_repetition(pos.game_ply() - path.path_length);
+		if (rep_state != RepetitionState::REPETITION_NONE)
+		{
+			float score;
+			switch (rep_state)
+			{
+			case REPETITION_WIN:
+			case REPETITION_SUPERIOR:
+				score = 1.0;
+				break;
+			case REPETITION_LOSE:
+			case REPETITION_INFERIOR:
+				score = -1.0;
+				break;
+			default:
+				score = 0.0;
+				break;
+			}
+
+			backup_tree(score, path);
+			return;
+		}
 	}
 
 	if (!node.evaled)
