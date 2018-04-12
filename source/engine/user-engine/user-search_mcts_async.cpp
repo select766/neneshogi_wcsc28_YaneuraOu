@@ -160,6 +160,7 @@ static int pv_interval = 1000;
 static bool dnn_initialized = false;
 static std::chrono::steady_clock::time_point search_begin_time;
 static float search_begin_nodes;
+static int block_queue_length = 2;
 
 // USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
 void user_test(Position& pos_, istringstream& is)
@@ -186,6 +187,7 @@ void USI::extra_option(USI::OptionsMap & o)
 	o["process_per_gpu"] << Option(1, 1, 10);
 	o["gpu_max"] << Option(0, -1, 16);
 	o["gpu_min"] << Option(0, -1, 16);
+	o["block_queue_length"] << Option(2, 1, 64);
 }
 
 // 起動時に呼び出される。時間のかからない探索関係の初期化処理はここに書くこと。
@@ -203,6 +205,7 @@ void  Search::clear()
 	}
 	max_select = (int)Options["NodesLimit"];
 	pv_interval = (int)Options["PvInterval"];
+	block_queue_length = (int)Options["block_queue_length"];
 	unsigned long long hash_max_gb = (unsigned int)Options["MCTSHash"];//このサイズ以下で、2^n要素数を選択
 	unsigned long long hash_max_bytes = hash_max_gb * (1024 * 1024 * 1024);
 	unsigned long long node_hash_size = 1;
@@ -690,7 +693,7 @@ void MainThread::think()
 					// 探索回数が少ないうちに複数のバッチを評価待ちにすると、重複が多くなりバイアスが大きくなる
 					block = true;
 				}
-				else if (pending_batches >= 2)
+				else if (pending_batches >= block_queue_length)
 				{
 					block = true;
 				}
