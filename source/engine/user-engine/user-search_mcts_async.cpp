@@ -157,6 +157,8 @@ static int n_batch_get = 0;
 static TreeConfig tree_config;
 static int max_select = 1000;
 static int pv_interval = 1000;
+static int eval_count_this_search = 0;// 探索開始から評価したノード数。nps表示用。詰みに達した場合等は加算しない。
+static int special_terminal_count_this_search = 0;// 探索開始から、評価関数呼び出し以外の終端ノードに到達した回数。
 static bool dnn_initialized = false;
 static std::chrono::steady_clock::time_point search_begin_time;
 static float search_begin_nodes;
@@ -307,7 +309,7 @@ bool enqueue_pos(const Position &pos, dnn_table_index &path)
 	return not_mate;
 }
 
-// treeのbackup操作。リーフノードが既存の終端ノードだった時はこれを直接呼ぶ。
+// treeのbackup操作。
 void backup_tree(float leaf_score, dnn_table_index &path)
 {
 	float score = leaf_score;
@@ -379,6 +381,13 @@ void update_on_mate(dnn_table_index &path)
 	backup_tree(score, path);
 }
 
+// 末端ノードが評価不要ノードだった場合
+void update_on_terminal(float leaf_score, dnn_table_index &path)
+{
+	special_terminal_count_this_search++;
+	backup_tree(leaf_score, path);
+}
+
 bool receive_result(bool block)
 {
 	int receive_count = 0;
@@ -407,6 +416,8 @@ bool receive_result(bool block)
 
 	result_queue->end_read();
 	n_batch_get++;
+
+	eval_count_this_search += receive_count;
 
 	return true;
 }
@@ -475,7 +486,7 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 	{
 		// 千日手模様の筋などで起こるかもしれないので一応対策
 		// 引き分けとみなして終了する
-		backup_tree(0.0, path);
+		update_on_terminal(0.0, path);
 		return;
 	}
 
@@ -484,7 +495,7 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 	{
 		// 詰みノード
 		// 評価は不要で、親へ評価値を再度伝播する
-		backup_tree(-1.0, path);
+		update_on_terminal(-1.0, path);
 		return;
 	}
 
@@ -509,7 +520,7 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 				break;
 			}
 
-			backup_tree(score, path);
+			update_on_terminal(score, path);
 			return;
 		}
 	}
@@ -591,7 +602,7 @@ float get_pv(int cur_index, vector<Move> &pv, Position &pos)
 	{
 		if (node->value_n[i] > best_n)
 		{
-			best_n =  node->value_n[i];
+			best_n = node->value_n[i];
 			bestMove = node->move_list[i];
 			winrate = node->value_w[i] / node->value_n[i];
 		}
@@ -639,7 +650,7 @@ void print_pv(int root_index, Position &rootPos)
 	std::chrono::milliseconds elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds> (now - search_begin_time);
 	long long elapsed_ms = elapsed_time.count();
 	elapsed_ms++;//0除算回避
-	float nps = nodes_from_begin * 1000.0 / elapsed_ms;
+	float nps = eval_count_this_search * 1000.0 / elapsed_ms;
 	int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
 	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size() << " score cp " << winrate_to_cp(winrate)
 		<< " time " << (int)elapsed_ms << " nps " << (int)nps << " hashfull " << hashfull << " pv";
@@ -668,6 +679,8 @@ void MainThread::think()
 	if (!root_node.terminal)
 	{
 		search_begin_nodes = root_node.value_n_sum;
+		eval_count_this_search = 0;
+		special_terminal_count_this_search = 0;
 		sync_cout << "info string prob ";
 		float best_p = -10.0;
 		Move best_p_move = MOVE_RESIGN;
@@ -742,7 +755,7 @@ void MainThread::think()
 			}
 		}
 		std::cout << sync_endl;
-		sync_cout << "info string dup eval=" << total_dup_eval << sync_endl;
+		sync_cout << "info string dup eval=" << total_dup_eval << " special=" << special_terminal_count_this_search << sync_endl;
 		sync_cout << "info string max depth=" << current_max_depth << sync_endl;
 		print_pv(root_index, rootPos);
 	}
