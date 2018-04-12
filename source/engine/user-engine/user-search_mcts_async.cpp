@@ -666,6 +666,7 @@ void print_pv(int root_index, Position &rootPos)
 // そのあとslaveスレッドを終了させ、ベストな指し手を返すこと。
 void MainThread::think()
 {
+	Time.init(Search::Limits, rootPos.side_to_move(), rootPos.game_ply());
 	search_begin_time = std::chrono::steady_clock::now();
 	long long next_pv_time = 0;
 	if (tree_config.clear_table_before_search)
@@ -675,6 +676,7 @@ void MainThread::think()
 	int root_index = get_or_create_root(rootPos);
 	UctNode &root_node = node_hash->nodes[root_index];
 	Move bestMove = MOVE_RESIGN;
+	Move ponderMove = MOVE_RESIGN;
 	int n_select = 0;
 	if (!root_node.terminal)
 	{
@@ -695,10 +697,12 @@ void MainThread::think()
 		}
 		std::cout << sync_endl;
 		sync_cout << "info score cp " << winrate_to_cp(best_p) << " pv " << best_p_move << sync_endl;
+		sync_cout << "info string elapsed " << Time.elapsed() << " " << Time.optimum() << sync_endl;
 		total_dup_eval = 0;
-		while (n_select < max_select || n_batch_get < n_batch_put)
+		while (true)
 		{
-			if (n_select < max_select)
+			bool in_time = !Threads.stop && n_select < max_select && (Threads.ponder || Time.elapsed() < Time.optimum());
+			if (in_time)
 			{
 				dnn_table_index path;
 				path.path_length = 1;
@@ -716,9 +720,13 @@ void MainThread::think()
 				}
 			}
 
-			if (n_batch_get < n_batch_put)
+			int pending_batches = n_batch_put - n_batch_get;
+			if (!in_time && pending_batches == 0)
 			{
-				int pending_batches = n_batch_put - n_batch_get;
+				break;
+			}
+			if (pending_batches > 0)
+			{
 				bool block = false;
 				if (root_node.value_n_sum < 10000)
 				{
@@ -745,14 +753,38 @@ void MainThread::think()
 		}
 		float best_n = -10.0;
 		sync_cout << "info string n ";
+		int best_child_index = -1;
 		for (size_t i = 0; i < root_node.n_children; i++)
 		{
 			std::cout << root_node.value_n[i] << "(" << root_node.move_list[i] << ") ";
 			if (root_node.value_n[i] > best_n)
 			{
+				best_child_index = i;
 				best_n = root_node.value_n[i];
 				bestMove = root_node.move_list[i];
 			}
+		}
+		if (best_child_index >= 0)
+		{
+			// 自分が指した後の局面でgreedyに指し手を選びponderにする
+			StateInfo si;
+			rootPos.do_move(bestMove, si);
+			int child_index = node_hash->find_index(rootPos);
+			if (child_index >= 0)
+			{
+				auto &best_child_node = node_hash->nodes[child_index];
+				float best_child_n = -10.0;
+				for (size_t i = 0; i < best_child_node.n_children; i++)
+				{
+					float node_n = best_child_node.value_n[i];
+					if (node_n > best_child_n)
+					{
+						best_child_n = node_n;
+						ponderMove = best_child_node.move_list[i];
+					}
+				}
+			}
+			rootPos.undo_move(bestMove);
 		}
 		std::cout << sync_endl;
 		sync_cout << "info string dup eval=" << total_dup_eval << " special=" << special_terminal_count_this_search << sync_endl;
@@ -763,7 +795,17 @@ void MainThread::think()
 #ifdef _DEBUG
 	std::this_thread::sleep_for(std::chrono::seconds(5));
 #endif
-	sync_cout << "bestmove " << bestMove << sync_endl;
+	while (Threads.ponder && !Threads.stop)
+	{
+		// ponder中は返してはいけない
+		sleep(1);
+	}
+	sync_cout << "bestmove " << bestMove;
+	if (ponderMove != MOVE_RESIGN)
+	{
+		cout << " ponder " << ponderMove;
+	}
+	cout << sync_endl;
 
 }
 
