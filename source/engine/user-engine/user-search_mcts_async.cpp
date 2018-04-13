@@ -160,7 +160,6 @@ static int pv_interval = 1000;
 static int eval_count_this_search = 0;// 探索開始から評価したノード数。nps表示用。詰みに達した場合等は加算しない。
 static int special_terminal_count_this_search = 0;// 探索開始から、評価関数呼び出し以外の終端ノードに到達した回数。
 static bool dnn_initialized = false;
-static float search_begin_nodes;
 static int block_queue_length = 2;
 
 // USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
@@ -644,7 +643,6 @@ void print_pv(int root_index, Position &rootPos)
 	UctNode *root_node = &node_hash->nodes[root_index];
 	vector<Move> pv;
 	float winrate = get_pv(root_index, pv, rootPos);
-	float nodes_from_begin = root_node->value_n_sum - search_begin_nodes;
 	int elapsed_ms = Time.elapsed();
 	int nps = eval_count_this_search * 1000 / max(elapsed_ms, 1);//0除算回避
 	int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
@@ -655,6 +653,49 @@ void print_pv(int root_index, Position &rootPos)
 		std::cout << " " << m;
 	}
 	std::cout << sync_endl;
+}
+
+void select_best_move(Position &rootPos, UctNode &root_node, Move &bestMove, Move &ponderMove)
+{
+	float best_n = -10.0;
+	sync_cout << "info string n ";
+	int best_child_index = -1;
+	// greedy
+	// TODO: play temperature版
+	for (size_t i = 0; i < root_node.n_children; i++)
+	{
+		std::cout << root_node.value_n[i] << "(" << root_node.move_list[i] << ") ";
+		if (root_node.value_n[i] > best_n)
+		{
+			best_child_index = i;
+			best_n = root_node.value_n[i];
+			bestMove = root_node.move_list[i];
+		}
+	}
+	std::cout << sync_endl;
+
+	if (best_child_index >= 0)
+	{
+		// 自分が指した後の局面でgreedyに指し手を選びponderにする
+		StateInfo si;
+		rootPos.do_move(bestMove, si);
+		int child_index = node_hash->find_index(rootPos);
+		if (child_index >= 0)
+		{
+			auto &best_child_node = node_hash->nodes[child_index];
+			float best_child_n = -10.0;
+			for (size_t i = 0; i < best_child_node.n_children; i++)
+			{
+				float node_n = best_child_node.value_n[i];
+				if (node_n > best_child_n)
+				{
+					best_child_n = node_n;
+					ponderMove = best_child_node.move_list[i];
+				}
+			}
+		}
+		rootPos.undo_move(bestMove);
+	}
 }
 
 // 探索開始時に呼び出される。
@@ -675,7 +716,6 @@ void MainThread::think()
 	int n_select = 0;
 	if (!root_node.terminal)
 	{
-		search_begin_nodes = root_node.value_n_sum;
 		eval_count_this_search = 0;
 		special_terminal_count_this_search = 0;
 		sync_cout << "info string prob ";
@@ -745,42 +785,9 @@ void MainThread::think()
 				}
 			}
 		}
-		float best_n = -10.0;
-		sync_cout << "info string n ";
-		int best_child_index = -1;
-		for (size_t i = 0; i < root_node.n_children; i++)
-		{
-			std::cout << root_node.value_n[i] << "(" << root_node.move_list[i] << ") ";
-			if (root_node.value_n[i] > best_n)
-			{
-				best_child_index = i;
-				best_n = root_node.value_n[i];
-				bestMove = root_node.move_list[i];
-			}
-		}
-		if (best_child_index >= 0)
-		{
-			// 自分が指した後の局面でgreedyに指し手を選びponderにする
-			StateInfo si;
-			rootPos.do_move(bestMove, si);
-			int child_index = node_hash->find_index(rootPos);
-			if (child_index >= 0)
-			{
-				auto &best_child_node = node_hash->nodes[child_index];
-				float best_child_n = -10.0;
-				for (size_t i = 0; i < best_child_node.n_children; i++)
-				{
-					float node_n = best_child_node.value_n[i];
-					if (node_n > best_child_n)
-					{
-						best_child_n = node_n;
-						ponderMove = best_child_node.move_list[i];
-					}
-				}
-			}
-			rootPos.undo_move(bestMove);
-		}
-		std::cout << sync_endl;
+
+		select_best_move(rootPos, root_node, bestMove, ponderMove);
+
 		sync_cout << "info string dup eval=" << total_dup_eval << " special=" << special_terminal_count_this_search << sync_endl;
 		sync_cout << "info string max depth=" << current_max_depth << sync_endl;
 		print_pv(root_index, rootPos);
