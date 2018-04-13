@@ -586,23 +586,29 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 	pos.undo_move(m);
 }
 
-float get_pv(int cur_index, vector<Move> &pv, Position &pos)
+// pv取得。winrateはルートノードでのbestMoveの勝率。mate_inは、読み筋の末端が詰みのときの手数。ルートが詰んでいたら0。詰まないとき負の値。
+void get_pv(int cur_index, vector<Move> &pv, Position &pos, bool root, float &winrate, int &mate_in)
 {
 	UctNode *node = &node_hash->nodes[cur_index];
 	if (node->terminal)
 	{
-		return 0.0F;
+		if (root)
+		{
+			winrate = -1.0F;
+		}
+		mate_in = 0;
+		return;
 	}
 	int best_n = -1;
-	float winrate = 0.0;
 	Move bestMove = MOVE_RESIGN;
+	int best_child_i = 0;
 	for (size_t i = 0; i < node->n_children; i++)
 	{
 		if (node->value_n[i] > best_n)
 		{
 			best_n = node->value_n[i];
 			bestMove = node->move_list[i];
-			winrate = node->value_w[i] / node->value_n[i];
+			best_child_i = i;
 		}
 	}
 	if (pos.pseudo_legal(bestMove) && pos.legal(bestMove))
@@ -613,11 +619,21 @@ float get_pv(int cur_index, vector<Move> &pv, Position &pos)
 		int child_index = node_hash->find_index(pos);
 		if (child_index >= 0)
 		{
-			get_pv(child_index, pv, pos);
+			get_pv(child_index, pv, pos, false, winrate, mate_in);
+			mate_in++;
+		}
+		else
+		{
+			// 読み筋が途切れた
+			// 詰まないものとして扱う
+			mate_in = -1000;
 		}
 		pos.undo_move(bestMove);
 	}
-	return winrate;
+	if (root)
+	{
+		winrate = node->value_w[best_child_i] / node->value_n[best_child_i];
+	}
 }
 
 int winrate_to_cp(float winrate)
@@ -642,12 +658,29 @@ void print_pv(int root_index, Position &rootPos)
 {
 	UctNode *root_node = &node_hash->nodes[root_index];
 	vector<Move> pv;
-	float winrate = get_pv(root_index, pv, rootPos);
+	float winrate;
+	int mate_in;
+	get_pv(root_index, pv, rootPos, true, winrate, mate_in);
 	int elapsed_ms = Time.elapsed();
 	int nps = eval_count_this_search * 1000 / max(elapsed_ms, 1);//0除算回避
 	int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
-	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size() << " score cp " << winrate_to_cp(winrate)
-		<< " time " << elapsed_ms << " nps " << nps << " hashfull " << hashfull << " pv";
+	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size();
+	if (mate_in >= 0)
+	{
+		char* sign = "";
+		if (mate_in % 2 == 0)
+		{
+			// 詰まされる方向のときはマイナスをつける(詰んでいて0手のときも-を付ける)
+			sign = "-";
+		}
+		cout << " score mate " << sign << mate_in;
+	}
+	else
+	{
+		cout << " score cp " << winrate_to_cp(winrate);
+	}
+
+	cout << " time " << elapsed_ms << " nps " << nps << " hashfull " << hashfull << " pv";
 	for (auto m : pv)
 	{
 		std::cout << " " << m;
@@ -683,7 +716,7 @@ void select_best_move(Position &rootPos, UctNode &root_node, Move &bestMove, Mov
 		if (child_index >= 0)
 		{
 			auto &best_child_node = node_hash->nodes[child_index];
-			int best_child_n = -1.0;
+			int best_child_n = -1;
 			for (size_t i = 0; i < best_child_node.n_children; i++)
 			{
 				int node_n = best_child_node.value_n[i];
