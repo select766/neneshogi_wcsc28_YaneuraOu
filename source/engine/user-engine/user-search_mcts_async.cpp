@@ -160,7 +160,6 @@ static int pv_interval = 1000;
 static int eval_count_this_search = 0;// 探索開始から評価したノード数。nps表示用。詰みに達した場合等は加算しない。
 static int special_terminal_count_this_search = 0;// 探索開始から、評価関数呼び出し以外の終端ノードに到達した回数。
 static bool dnn_initialized = false;
-static std::chrono::steady_clock::time_point search_begin_time;
 static float search_begin_nodes;
 static int block_queue_length = 2;
 
@@ -646,14 +645,11 @@ void print_pv(int root_index, Position &rootPos)
 	vector<Move> pv;
 	float winrate = get_pv(root_index, pv, rootPos);
 	float nodes_from_begin = root_node->value_n_sum - search_begin_nodes;
-	std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-	std::chrono::milliseconds elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds> (now - search_begin_time);
-	long long elapsed_ms = elapsed_time.count();
-	elapsed_ms++;//0除算回避
-	float nps = eval_count_this_search * 1000.0 / elapsed_ms;
+	int elapsed_ms = Time.elapsed();
+	int nps = eval_count_this_search * 1000 / max(elapsed_ms, 1);//0除算回避
 	int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
 	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size() << " score cp " << winrate_to_cp(winrate)
-		<< " time " << (int)elapsed_ms << " nps " << (int)nps << " hashfull " << hashfull << " pv";
+		<< " time " << elapsed_ms << " nps " << nps << " hashfull " << hashfull << " pv";
 	for (auto m : pv)
 	{
 		std::cout << " " << m;
@@ -667,7 +663,6 @@ void print_pv(int root_index, Position &rootPos)
 void MainThread::think()
 {
 	Time.init(Search::Limits, rootPos.side_to_move(), rootPos.game_ply());
-	search_begin_time = std::chrono::steady_clock::now();
 	long long next_pv_time = 0;
 	if (tree_config.clear_table_before_search)
 	{
@@ -701,7 +696,7 @@ void MainThread::think()
 		total_dup_eval = 0;
 		while (true)
 		{
-			bool in_time = !Threads.stop && n_select < max_select && (Threads.ponder || Time.elapsed() < Time.optimum());
+			bool in_time = !Threads.stop && n_select < max_select && (Threads.ponder || Time.elapsed() < Time.optimum());//TODO 時刻取得系は別スレッドへ
 			if (in_time)
 			{
 				dnn_table_index path;
@@ -741,9 +736,8 @@ void MainThread::think()
 				if (receive_result(block))
 				{
 					// 頻繁に時刻取得をするのも無駄そうなのでここで
-					std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-					std::chrono::milliseconds elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds> (now - search_begin_time);
-					if (elapsed_time.count() >= next_pv_time)
+					auto elapsed = Time.elapsed();
+					if (elapsed >= next_pv_time)
 					{
 						print_pv(root_index, rootPos);
 						next_pv_time += pv_interval;
