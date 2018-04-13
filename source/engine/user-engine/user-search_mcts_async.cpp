@@ -29,14 +29,14 @@ namespace MCTSAsync
 	class UctNode
 	{
 	public:
-		float value_n_sum;
+		int value_n_sum;
 		bool terminal;
 		bool evaled;
 		DupEvalChain *dup_eval_chain;//複数回評価が呼ばれたとき、ここにリストをつなげて各経路でbackupする。
 		float score;
 		int n_children;
 		Move move_list[MAX_UCT_CHILDREN];
-		float value_n[MAX_UCT_CHILDREN];
+		int value_n[MAX_UCT_CHILDREN];
 		float value_w[MAX_UCT_CHILDREN];
 		float value_p[MAX_UCT_CHILDREN];
 		//float value_q[MAX_UCT_CHILDREN];
@@ -180,7 +180,7 @@ void USI::extra_option(USI::OptionsMap & o)
 	o["softmax"] << Option("1.0");
 	o["value_scale"] << Option("1.0");
 	o["value_slope"] << Option("1.0");
-	o["virtual_loss"] << Option("1.0");
+	o["virtual_loss"] << Option(1, 0, 100);
 	o["clear_table"] << Option(false);
 	o["model"] << Option("<empty>");
 	o["batch_size"] << Option(16, 1, 65536);
@@ -220,7 +220,7 @@ void  Search::clear()
 	node_hash = new NodeHash((int)node_hash_size);
 	tree_config.c_puct = (float)atof(((string)Options["c_puct"]).c_str());
 	tree_config.play_temperature = (float)atof(((string)Options["play_temperature"]).c_str());
-	tree_config.virtual_loss = (float)atof(((string)Options["virtual_loss"]).c_str());
+	tree_config.virtual_loss = (int)Options["virtual_loss"];
 	tree_config.value_scale = (float)atof(((string)Options["value_scale"]).c_str());
 	tree_config.clear_table_before_search = (bool)Options["clear_table"];
 
@@ -318,13 +318,13 @@ void backup_tree(float leaf_score, dnn_table_index &path)
 		score = -score;
 		UctNode &inner_node = node_hash->nodes[path.path_indices[i]];
 		uint16_t edge = path.path_child_indices[i];
-		float new_value_n = inner_node.value_n[edge] + 1.0F - tree_config.virtual_loss;
+		int new_value_n = inner_node.value_n[edge] + 1 - tree_config.virtual_loss;
 		inner_node.value_n[edge] = new_value_n;
 		float new_value_w = inner_node.value_w[edge] + score + tree_config.virtual_loss;
 		inner_node.value_w[edge] = new_value_w;
 		// inner_node.vloss_ctr[edge]--;
 		// inner_node.value_q[edge] = new_value_w / new_value_n;
-		inner_node.value_n_sum += 1.0F - tree_config.virtual_loss;
+		inner_node.value_n_sum += 1 - tree_config.virtual_loss;
 	}
 }
 
@@ -460,7 +460,7 @@ int select_edge(UctNode &node)
 	float best_value = -100.0F;
 	for (size_t i = 0; i < node.n_children; i++)
 	{
-		float value_n = node.value_n[i];
+		float value_n = (float)node.value_n[i];
 		float value_u = node.value_p[i] / (value_n + 1) * tree_config.c_puct * n_sum_sqrt;
 		float value_q = node.value_w[i] / (value_n + 1e-8F);//0除算回避
 		float value_sum = value_q + value_u;
@@ -593,7 +593,7 @@ float get_pv(int cur_index, vector<Move> &pv, Position &pos)
 	{
 		return 0.0F;
 	}
-	float best_n = -10.0;
+	int best_n = -1;
 	float winrate = 0.0;
 	Move bestMove = MOVE_RESIGN;
 	for (size_t i = 0; i < node->n_children; i++)
@@ -657,7 +657,7 @@ void print_pv(int root_index, Position &rootPos)
 
 void select_best_move(Position &rootPos, UctNode &root_node, Move &bestMove, Move &ponderMove)
 {
-	float best_n = -10.0;
+	int best_n = -1;
 	sync_cout << "info string n ";
 	int best_child_index = -1;
 	// greedy
@@ -683,10 +683,10 @@ void select_best_move(Position &rootPos, UctNode &root_node, Move &bestMove, Mov
 		if (child_index >= 0)
 		{
 			auto &best_child_node = node_hash->nodes[child_index];
-			float best_child_n = -10.0;
+			int best_child_n = -1.0;
 			for (size_t i = 0; i < best_child_node.n_children; i++)
 			{
-				float node_n = best_child_node.value_n[i];
+				int node_n = best_child_node.value_n[i];
 				if (node_n > best_child_n)
 				{
 					best_child_n = node_n;
