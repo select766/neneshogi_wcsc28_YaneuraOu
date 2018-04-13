@@ -315,7 +315,8 @@ void backup_tree(float leaf_score, dnn_table_index &path)
 	// tree‚ð‚½‚Ç‚è’l‚ðXV
 	for (int i = path.path_length - 2; i >= 0; i--)
 	{
-		score = -score;
+		//score = -score;
+		score = score * -0.99F;//“¦‚°‚éŽž‚Í‚æ‚è’·‚¢‹l‚Ý‹ØA’Ç‚¤‚Æ‚«‚Í’Z‚¢‹l‚Ý‹Ø‚ð‘I‚Ô‚æ‚¤’²®
 		UctNode &inner_node = node_hash->nodes[path.path_indices[i]];
 		uint16_t edge = path.path_child_indices[i];
 		int new_value_n = inner_node.value_n[edge] + 1 - tree_config.virtual_loss;
