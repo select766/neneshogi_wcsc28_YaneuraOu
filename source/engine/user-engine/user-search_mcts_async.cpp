@@ -732,6 +732,8 @@ void select_best_move(Position &rootPos, UctNode &root_node, Move &bestMove, Mov
 	}
 }
 
+std::atomic_bool in_search_time;
+
 // 探索開始時に呼び出される。
 // この関数内で初期化を終わらせ、slaveスレッドを起動してThread::search()を呼び出す。
 // そのあとslaveスレッドを終了させ、ベストな指し手を返すこと。
@@ -739,6 +741,7 @@ void MainThread::think()
 {
 	Time.init(Search::Limits, rootPos.side_to_move(), rootPos.game_ply());
 	long long next_pv_time = 0;
+	in_search_time = true;
 	if (tree_config.clear_table_before_search)
 	{
 		node_hash->clear();
@@ -752,6 +755,8 @@ void MainThread::think()
 	{
 		eval_count_this_search = 0;
 		special_terminal_count_this_search = 0;
+
+		// 事前確率表示
 		sync_cout << "info string prob ";
 		float best_p = -10.0;
 		Move best_p_move = MOVE_RESIGN;
@@ -766,12 +771,23 @@ void MainThread::think()
 		}
 		std::cout << sync_endl;
 		sync_cout << "info score cp " << winrate_to_cp(best_p) << " pv " << best_p_move << sync_endl;
-		sync_cout << "info string elapsed " << Time.elapsed() << " " << Time.optimum() << sync_endl;
+
 		total_dup_eval = 0;
+		auto timer_thread = std::thread([] {
+			while (!Threads.stop && (Threads.ponder || Time.elapsed() < Time.optimum()) && in_search_time)
+			{
+				sleep(10);
+			}
+			// Time.elapsed() < Time.optimum()の場合、ponderで開始してからの時間になる。フィッシャークロックルールならこれで問題ない。
+			// 秒読み状態だと無駄になってしまう。
+			// これで停止フラグを立てた後、DNN評価が返ってくるまで待つ必要があるのでTime.maximum()は危険。
+			in_search_time = false;
+		});
+		// 探索時間内は木構造探索をする。同時に評価結果を回収。時間切れになったらflushして投入済み評価バッチを回収。
+		bool no_more_search = false;
 		while (true)
 		{
-			bool in_time = !Threads.stop && n_select < max_select && (Threads.ponder || Time.elapsed() < Time.optimum());//TODO 時刻取得系は別スレッドへ
-			if (in_time)
+			if (in_search_time && (n_select < max_select))
 			{
 				dnn_table_index path;
 				path.path_length = 1;
@@ -783,14 +799,19 @@ void MainThread::think()
 				{
 					flush_queue();
 				}
-				if (n_select == max_select)
+			}
+			else
+			{
+				if (!no_more_search)
 				{
+					// これ以上投入しないのでflushする
 					flush_queue();
 				}
+				no_more_search = true;
 			}
 
 			int pending_batches = n_batch_put - n_batch_get;
-			if (!in_time && pending_batches == 0)
+			if (no_more_search && pending_batches == 0)
 			{
 				break;
 			}
@@ -807,7 +828,7 @@ void MainThread::think()
 					block = true;
 				}
 
-				if (receive_result(block))
+				if (receive_result(block || no_more_search))
 				{
 					// 頻繁に時刻取得をするのも無駄そうなのでここで
 					auto elapsed = Time.elapsed();
@@ -819,6 +840,9 @@ void MainThread::think()
 				}
 			}
 		}
+
+		in_search_time = false;//n_select < max_selectの条件でwhileを抜けてもtimer_threadを終了させるため
+		timer_thread.join();
 
 		select_best_move(rootPos, root_node, bestMove, ponderMove);
 
@@ -832,6 +856,7 @@ void MainThread::think()
 #endif
 	while (Threads.ponder && !Threads.stop)
 	{
+		// ここのThreads.stopは実際にstopコマンドが来たことを表さないといけない。探索終了時間などで書き換えると違反になる。
 		// ponder中は返してはいけない
 		sleep(1);
 	}
