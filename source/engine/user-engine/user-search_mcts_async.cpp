@@ -750,7 +750,7 @@ void MainThread::think()
 	UctNode &root_node = node_hash->nodes[root_index];
 	Move bestMove = MOVE_RESIGN;
 	Move ponderMove = MOVE_RESIGN;
-	int n_select = 0;
+	int n_select = root_node.value_n_sum;
 	if (!root_node.terminal)
 	{
 		eval_count_this_search = 0;
