@@ -72,7 +72,11 @@ namespace MCTSAsync
 
 		int find_or_create_index(const Position &pos, bool *created)
 		{
-			Key key = pos.key();
+			return find_or_create_index(pos.key(), pos.game_ply(), created);
+		}
+
+		int find_or_create_index(Key key, int game_ply, bool *created)
+		{
 			int orig_index = (unsigned int)key & uct_hash_mask;
 			int index = orig_index;
 			while (true)
@@ -80,7 +84,7 @@ namespace MCTSAsync
 				NodeHashEntry *nhe = &entries[index];
 				if (nhe->flag)
 				{
-					if (nhe->key == key && nhe->game_ply == pos.game_ply())
+					if (nhe->key == key && nhe->game_ply == game_ply)
 					{
 						*created = false;
 						return index;
@@ -90,7 +94,7 @@ namespace MCTSAsync
 				else
 				{
 					nhe->key = key;
-					nhe->game_ply = pos.game_ply();
+					nhe->game_ply = game_ply;
 					nhe->flag = true;
 					used++;
 					if (used > uct_hash_limit)
@@ -111,7 +115,11 @@ namespace MCTSAsync
 
 		int find_index(const Position &pos)
 		{
-			Key key = pos.key();
+			return find_index(pos.key(), pos.game_ply());
+		}
+
+		int find_index(Key key, int game_ply)
+		{
 			int orig_index = (unsigned int)key & uct_hash_mask;
 			int index = orig_index;
 			while (true)
@@ -119,7 +127,7 @@ namespace MCTSAsync
 				NodeHashEntry *nhe = &entries[index];
 				if (nhe->flag)
 				{
-					if (nhe->key == key && nhe->game_ply == pos.game_ply())
+					if (nhe->key == key && nhe->game_ply == game_ply)
 					{
 						return index;
 					}
@@ -142,6 +150,89 @@ namespace MCTSAsync
 		{
 			delete[] entries;
 			delete[] nodes;
+		}
+
+		bool save(const string& path, int min_visit)
+		{
+			ofstream f;
+			f.open(path.c_str(), ios::out | ios::binary | ios::trunc);
+			if (!f)
+			{
+				return false;
+			}
+
+			for (int i = 0; i < uct_hash_size; i++)
+			{
+				NodeHashEntry *nhe = &entries[i];
+				if (!nhe->flag)
+				{
+					continue;
+				}
+				UctNode *node = &nodes[i];
+				if (node->value_n_sum < min_visit)
+				{
+					continue;
+				}
+
+				f.write(reinterpret_cast<char*>(nhe), sizeof(NodeHashEntry));
+				f.write(reinterpret_cast<char*>(node), sizeof(UctNode));
+				if (!f)
+				{
+					return false;
+				}
+			}
+
+			f.close();
+
+			if (!f)
+			{
+				return false;
+			}
+			return true;
+		}
+
+		bool load(const string& path)
+		{
+			ifstream f;
+			f.open(path.c_str(), ios::in | ios::binary);
+			if (!f)
+			{
+				return false;
+			}
+
+			bool ok = true;
+
+			while (!f.eof())
+			{
+				NodeHashEntry f_nhe;
+				UctNode f_node;
+				f.read(reinterpret_cast<char*>(&f_nhe), sizeof(NodeHashEntry));
+				f.read(reinterpret_cast<char*>(&f_node), sizeof(UctNode));
+				bool created;
+				int index = find_or_create_index(f_nhe.key, f_nhe.game_ply, &created);
+				if (index < 0)
+				{
+					ok = false;
+					break;
+				}
+
+				NodeHashEntry *t_nhe = &entries[index];
+				UctNode *t_node = &nodes[index];
+				if (!created)
+				{
+					// 既存データより訪問回数が多いときだけ上書き
+					if (t_node->value_n_sum >= f_node.value_n_sum)
+					{
+						continue;
+					}
+				}
+
+				memcpy(t_node, &f_node, sizeof(UctNode));
+			}
+
+			f.close();
+
+			return true;
 		}
 	};
 
@@ -167,6 +258,36 @@ void user_test(Position& pos_, istringstream& is)
 {
 	string token;
 	is >> token;
+	if (token == "save_tt")
+	{
+		int min_visit;
+		string path;
+		is >> min_visit;
+		is >> path;
+		if (node_hash->save(path, min_visit))
+		{
+			sync_cout << "ok" << sync_endl;
+		}
+		else
+		{
+			sync_cout << "failed" << sync_endl;
+		}
+	}
+	else if (token == "load_tt")
+	{
+		string path;
+		is >> path;
+		if (node_hash->load(path))
+		{
+			int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
+			sync_cout << "ok hashfull " << hashfull << sync_endl;
+		}
+		else
+		{
+			sync_cout << "failed" << sync_endl;
+		}
+
+	}
 }
 
 // USIに追加オプションを設定したいときは、この関数を定義すること。
@@ -183,6 +304,7 @@ void USI::extra_option(USI::OptionsMap & o)
 	o["virtual_loss"] << Option(1, 0, 100);
 	o["clear_table"] << Option(false);
 	o["model"] << Option("<empty>");
+	o["initial_tt"] << Option("<empty>");
 	o["batch_size"] << Option(16, 1, 65536);
 	o["process_per_gpu"] << Option(1, 1, 10);
 	o["gpu_max"] << Option(0, -1, 16);
@@ -223,6 +345,20 @@ void  Search::clear()
 	tree_config.virtual_loss = (int)Options["virtual_loss"];
 	tree_config.value_scale = (float)atof(((string)Options["value_scale"]).c_str());
 	tree_config.clear_table_before_search = (bool)Options["clear_table"];
+	string initial_tt = (string)Options["initial_tt"];
+	if (initial_tt.size() > 0)
+	{
+		sync_cout << "info string loading initial tt" << sync_endl;
+		if (node_hash->load(initial_tt))
+		{
+			int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
+			sync_cout << "info string loading ok hashfull " << hashfull << sync_endl;
+		}
+		else
+		{
+			sync_cout << "info string failed loading initial tt" << sync_endl;
+		}
+	}
 
 	if (!dnn_initialized)
 	{
