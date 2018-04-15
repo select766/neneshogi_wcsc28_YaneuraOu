@@ -568,6 +568,7 @@ int get_or_create_root(const Position &pos)
 		return index;
 	}
 
+	sync_cout << "info string creating root node" << sync_endl;
 	UctNode *node = &node_hash->nodes[index];
 
 	// ‹Ç–Ê•]‰¿
