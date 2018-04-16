@@ -727,6 +727,11 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 // pv取得。winrateはルートノードでのbestMoveの勝率。mate_inは、読み筋の末端が詰みのときの手数。ルートが詰んでいたら0。詰まないとき負の値。
 void get_pv(int cur_index, vector<Move> &pv, Position &pos, bool root, float &winrate, int &mate_in)
 {
+	if (root)
+	{
+		// mate_inが初期化されないコードパス対策
+		mate_in = -1000;
+	}
 	UctNode *node = &node_hash->nodes[cur_index];
 	if (node->terminal)
 	{
