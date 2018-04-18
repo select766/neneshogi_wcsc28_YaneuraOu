@@ -431,8 +431,14 @@ void flush_queue()
 	}
 }
 
-bool enqueue_pos(const Position &pos, dnn_table_index &path)
+bool enqueue_pos(const Position &pos, dnn_table_index &path, float &score)
 {
+	if (pos.DeclarationWin() != MOVE_NONE)
+	{
+		// 勝ち局面
+		score = 1.0;
+		return false;
+	}
 	if (!eval_objs)
 	{
 		while (!(eval_objs = eval_queue->begin_write()))
@@ -451,6 +457,14 @@ bool enqueue_pos(const Position &pos, dnn_table_index &path)
 		{
 			flush_queue();
 		}
+	}
+	if (!not_mate)
+	{
+		score = 1.0;
+	}
+	else
+	{
+		score = 0.0;//この値は使われないはず
 	}
 	return not_mate;
 }
@@ -517,15 +531,14 @@ void update_on_dnn_result(dnn_result_obj *result_obj)
 	}
 }
 
-void update_on_mate(dnn_table_index &path)
+void update_on_mate(dnn_table_index &path, float mate_score)
 {
 	// 新規展開ノードがmateだったときの処理
 	UctNode &leaf_node = node_hash->nodes[path.path_indices[path.path_length - 1]];
 	leaf_node.evaled = true;
 	leaf_node.terminal = true;
-	float score = -1.0F;
-	leaf_node.score = score;
-	backup_tree(score, path);
+	leaf_node.score = mate_score;
+	backup_tree(mate_score, path);
 }
 
 // 末端ノードが評価不要ノードだった場合
@@ -587,7 +600,8 @@ int get_or_create_root(const Position &pos)
 	dnn_table_index path;
 	path.path_length = 1;
 	path.path_indices[0] = index;
-	bool not_mate = enqueue_pos(pos, path);
+	float mate_score;
+	bool not_mate = enqueue_pos(pos, path, mate_score);
 	if (not_mate)
 	{
 		// 評価待ち
@@ -597,7 +611,7 @@ int get_or_create_root(const Position &pos)
 	else
 	{
 		// 詰んでいて評価対象にならない
-		update_on_mate(path);
+		update_on_mate(path, mate_score);
 	}
 
 	return index;
@@ -643,7 +657,7 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 	{
 		// 詰みノード
 		// 評価は不要で、親へ評価値を再度伝播する
-		update_on_terminal(-1.0, path);
+		update_on_terminal(node.score, path);
 		return;
 	}
 
@@ -715,7 +729,8 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 	if (created)
 	{
 		// 新規子ノードなので、評価
-		bool not_mate = enqueue_pos(pos, path);
+		float mate_score;
+		bool not_mate = enqueue_pos(pos, path, mate_score);
 		if (not_mate)
 		{
 			// 評価待ち
@@ -724,7 +739,7 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 		else
 		{
 			// 詰んでいて評価対象にならない
-			update_on_mate(path);
+			update_on_mate(path, mate_score);
 		}
 	}
 	else
@@ -749,9 +764,9 @@ void get_pv(int cur_index, vector<Move> &pv, Position &pos, bool root, float &wi
 	{
 		if (root)
 		{
-			winrate = -1.0F;
+			winrate = node->score;
 		}
-		mate_in = 0;
+		mate_in = 0;//入玉宣言だと符号が変になるが表示上の問題だけ
 		return;
 	}
 	int best_n = -1;
@@ -901,140 +916,156 @@ void MainThread::think()
 		node_hash->clear();
 	}
 
-	int root_index = get_or_create_root(rootPos);
-	UctNode &root_node = node_hash->nodes[root_index];
 	Move bestMove = MOVE_RESIGN;
 	Move ponderMove = MOVE_RESIGN;
-	int n_select = root_node.value_n_sum;
+	Move declarationWinMove = rootPos.DeclarationWin();
+	if (declarationWinMove != MOVE_NONE)
+	{
+		// 入玉宣言勝ち
+		bestMove = declarationWinMove;
+		while (Threads.ponder && !Threads.stop)
+		{
+			// ここのThreads.stopは実際にstopコマンドが来たことを表さないといけない。探索終了時間などで書き換えると違反になる。
+			// ponder中は返してはいけない
+			sleep(1);
+		}
+	}
+	else
+	{
+		int root_index = get_or_create_root(rootPos);
+		UctNode &root_node = node_hash->nodes[root_index];
+		int n_select = root_node.value_n_sum;
 
 #ifdef USE_MCTS_MATE_ENGINE
-	root_mate_found = false;
-	root_mate_pv.clear();
-	Threads[1]->start_searching();
+		root_mate_found = false;
+		root_mate_pv.clear();
+		Threads[1]->start_searching();
 #endif
 
-	if (!root_node.terminal && bestMove == MOVE_RESIGN)
-	{
-		eval_count_this_search = 0;
-		special_terminal_count_this_search = 0;
-
-		// 事前確率表示
-		sync_cout << "info string prob ";
-		float best_p = -10.0;
-		Move best_p_move = MOVE_RESIGN;
-		for (size_t i = 0; i < root_node.n_children; i++)
+		if (!root_node.terminal && bestMove == MOVE_RESIGN)
 		{
-			std::cout << root_node.move_list[i] << "(" << (int)(root_node.value_p[i] * 100) << "%) ";
-			if (root_node.value_p[i] > best_p)
-			{
-				best_p = root_node.value_p[i];
-				best_p_move = root_node.move_list[i];
-			}
-		}
-		std::cout << sync_endl;
-		sync_cout << "info score cp " << winrate_to_cp(best_p) << " pv " << best_p_move << sync_endl;
+			eval_count_this_search = 0;
+			special_terminal_count_this_search = 0;
 
-		total_dup_eval = 0;
-		auto timer_thread = std::thread([] {
-			while (!Threads.stop && (Threads.ponder || Time.elapsed() < Time.optimum()) && in_search_time)
+			// 事前確率表示
+			sync_cout << "info string prob ";
+			float best_p = -10.0;
+			Move best_p_move = MOVE_RESIGN;
+			for (size_t i = 0; i < root_node.n_children; i++)
 			{
-				sleep(10);
-			}
-			// Time.elapsed() < Time.optimum()の場合、ponderで開始してからの時間になる。フィッシャークロックルールならこれで問題ない。
-			// 秒読み状態だと無駄になってしまう。
-			// これで停止フラグを立てた後、DNN評価が返ってくるまで待つ必要があるのでTime.maximum()は危険。
-			in_search_time = false;
-		});
-		// 探索時間内は木構造探索をする。同時に評価結果を回収。時間切れになったらflushして投入済み評価バッチを回収。
-		bool no_more_search = false;
-		while (true)
-		{
-			if (in_search_time && (n_select < max_select || Threads.ponder))  // Ponder中は指定ノード数を超えても探索する
-			{
-				dnn_table_index path;
-				path.path_length = 1;
-				path.path_indices[0] = root_index;
-				dup_eval_flag = false;
-				mcts_select(root_index, path, rootPos);
-				n_select++;
-				if (dup_eval_flag)
+				std::cout << root_node.move_list[i] << "(" << (int)(root_node.value_p[i] * 100) << "%) ";
+				if (root_node.value_p[i] > best_p)
 				{
-					flush_queue();
+					best_p = root_node.value_p[i];
+					best_p_move = root_node.move_list[i];
 				}
 			}
-			else
-			{
-				if (!no_more_search)
-				{
-					// これ以上投入しないのでflushする
-					flush_queue();
-				}
-				no_more_search = true;
-			}
+			std::cout << sync_endl;
+			sync_cout << "info score cp " << winrate_to_cp(best_p) << " pv " << best_p_move << sync_endl;
 
-			int pending_batches = n_batch_put - n_batch_get;
-			if (no_more_search && pending_batches == 0)
-			{
-				break;
-			}
-			if (pending_batches > 0)
-			{
-				bool block = false;
-				if (root_node.value_n_sum < 10000)
+			total_dup_eval = 0;
+			auto timer_thread = std::thread([] {
+				while (!Threads.stop && (Threads.ponder || Time.elapsed() < Time.optimum()) && in_search_time)
 				{
-					// 探索回数が少ないうちに複数のバッチを評価待ちにすると、重複が多くなりバイアスが大きくなる
-					block = true;
+					sleep(10);
 				}
-				else if (pending_batches >= block_queue_length)
+				// Time.elapsed() < Time.optimum()の場合、ponderで開始してからの時間になる。フィッシャークロックルールならこれで問題ない。
+				// 秒読み状態だと無駄になってしまう。
+				// これで停止フラグを立てた後、DNN評価が返ってくるまで待つ必要があるのでTime.maximum()は危険。
+				in_search_time = false;
+			});
+			// 探索時間内は木構造探索をする。同時に評価結果を回収。時間切れになったらflushして投入済み評価バッチを回収。
+			bool no_more_search = false;
+			while (true)
+			{
+				if (in_search_time && (n_select < max_select || Threads.ponder))  // Ponder中は指定ノード数を超えても探索する
 				{
-					block = true;
-				}
-
-				if (receive_result(block || no_more_search))
-				{
-					// 頻繁に時刻取得をするのも無駄そうなのでここで
-					auto elapsed = Time.elapsed();
-					if (elapsed >= next_pv_time)
+					dnn_table_index path;
+					path.path_length = 1;
+					path.path_indices[0] = root_index;
+					dup_eval_flag = false;
+					mcts_select(root_index, path, rootPos);
+					n_select++;
+					if (dup_eval_flag)
 					{
-						print_pv(root_index, rootPos);
-						next_pv_time += pv_interval;
+						flush_queue();
+					}
+				}
+				else
+				{
+					if (!no_more_search)
+					{
+						// これ以上投入しないのでflushする
+						flush_queue();
+					}
+					no_more_search = true;
+				}
+
+				int pending_batches = n_batch_put - n_batch_get;
+				if (no_more_search && pending_batches == 0)
+				{
+					break;
+				}
+				if (pending_batches > 0)
+				{
+					bool block = false;
+					if (root_node.value_n_sum < 10000)
+					{
+						// 探索回数が少ないうちに複数のバッチを評価待ちにすると、重複が多くなりバイアスが大きくなる
+						block = true;
+					}
+					else if (pending_batches >= block_queue_length)
+					{
+						block = true;
+					}
+
+					if (receive_result(block || no_more_search))
+					{
+						// 頻繁に時刻取得をするのも無駄そうなのでここで
+						auto elapsed = Time.elapsed();
+						if (elapsed >= next_pv_time)
+						{
+							print_pv(root_index, rootPos);
+							next_pv_time += pv_interval;
+						}
 					}
 				}
 			}
+
+			in_search_time = false;//n_select < max_selectの条件でwhileを抜けてもtimer_threadを終了させるため
+			timer_thread.join();
+
+			select_best_move(rootPos, root_node, bestMove, ponderMove);
+
+			sync_cout << "info string dup eval=" << total_dup_eval << " special=" << special_terminal_count_this_search << sync_endl;
+			sync_cout << "info string max depth=" << current_max_depth << sync_endl;
+			print_pv(root_index, rootPos);
 		}
 
-		in_search_time = false;//n_select < max_selectの条件でwhileを抜けてもtimer_threadを終了させるため
-		timer_thread.join();
-
-		select_best_move(rootPos, root_node, bestMove, ponderMove);
-
-		sync_cout << "info string dup eval=" << total_dup_eval << " special=" << special_terminal_count_this_search << sync_endl;
-		sync_cout << "info string max depth=" << current_max_depth << sync_endl;
-		print_pv(root_index, rootPos);
-	}
 
 #ifdef _DEBUG
-	std::this_thread::sleep_for(std::chrono::seconds(5));
+		std::this_thread::sleep_for(std::chrono::seconds(5));
 #endif
-	while (Threads.ponder && !Threads.stop)
-	{
-		// ここのThreads.stopは実際にstopコマンドが来たことを表さないといけない。探索終了時間などで書き換えると違反になる。
-		// ponder中は返してはいけない
-		sleep(1);
-	}
-	Threads.stop = true;
-#ifdef USE_MCTS_MATE_ENGINE
-	Threads[1]->wait_for_search_finished();
-
-	if (root_mate_found)
-	{
-		bestMove = root_mate_pv[0];
-		if (root_mate_pv.size() >= 2)
+		while (Threads.ponder && !Threads.stop)
 		{
-			ponderMove = root_mate_pv[1];
+			// ここのThreads.stopは実際にstopコマンドが来たことを表さないといけない。探索終了時間などで書き換えると違反になる。
+			// ponder中は返してはいけない
+			sleep(1);
 		}
-	}
+		Threads.stop = true;
+#ifdef USE_MCTS_MATE_ENGINE
+		Threads[1]->wait_for_search_finished();
+
+		if (root_mate_found)
+		{
+			bestMove = root_mate_pv[0];
+			if (root_mate_pv.size() >= 2)
+			{
+				ponderMove = root_mate_pv[1];
+			}
+		}
 #endif
+	}
 	sync_cout << "bestmove " << bestMove;
 	if (ponderMove != MOVE_RESIGN)
 	{

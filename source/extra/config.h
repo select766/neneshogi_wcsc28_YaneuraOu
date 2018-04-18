@@ -374,6 +374,7 @@
 #define USE_KEY_AFTER
 #define USE_MATE_1PLY
 #endif
+#define USE_ENTERING_KING_WIN
 #define USE_TIME_MANAGEMENT
 #ifdef _DEBUG
 #define ENGINE_NAME "YaneuraOu user engine DEBUG"
