@@ -369,6 +369,11 @@
 //#define USER_ENGINE_SEARCH1
 //#define USER_ENGINE_MCTS_SYNC
 #define USER_ENGINE_MCTS_ASYNC
+#if 1
+#define USE_MCTS_MATE_ENGINE
+#define USE_KEY_AFTER
+#define USE_MATE_1PLY
+#endif
 #define USE_TIME_MANAGEMENT
 #ifdef _DEBUG
 #define ENGINE_NAME "YaneuraOu user engine DEBUG"

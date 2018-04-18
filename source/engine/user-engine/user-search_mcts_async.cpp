@@ -3,6 +3,7 @@
 #include <chrono>
 #include "user-search_common.h"
 #include "mcts.h"
+#include "mate-search_for_mcts.h"
 
 #ifdef USER_ENGINE_MCTS_ASYNC
 
@@ -252,6 +253,7 @@ static int eval_count_this_search = 0;// 探索開始から評価したノード数。nps表示用
 static int special_terminal_count_this_search = 0;// 探索開始から、評価関数呼び出し以外の終端ノードに到達した回数。
 static bool dnn_initialized = false;
 static int block_queue_length = 2;
+static MateEngine::MateSearchForMCTS *mate_search_root = nullptr;
 
 // USI拡張コマンド"user"が送られてくるとこの関数が呼び出される。実験に使ってください。
 void user_test(Position& pos_, istringstream& is)
@@ -359,6 +361,14 @@ void  Search::clear()
 			sync_cout << "info string failed loading initial tt" << sync_endl;
 		}
 	}
+
+#ifdef USE_MCTS_MATE_ENGINE
+	if (mate_search_root == nullptr)
+	{
+		mate_search_root = new MateEngine::MateSearchForMCTS();
+		mate_search_root->init(1024);
+	}
+#endif
 
 	if (!dnn_initialized)
 	{
@@ -888,12 +898,36 @@ void MainThread::think()
 	{
 		node_hash->clear();
 	}
+
 	int root_index = get_or_create_root(rootPos);
 	UctNode &root_node = node_hash->nodes[root_index];
 	Move bestMove = MOVE_RESIGN;
 	Move ponderMove = MOVE_RESIGN;
 	int n_select = root_node.value_n_sum;
-	if (!root_node.terminal)
+
+#ifdef USE_MCTS_MATE_ENGINE
+	if (true)
+	{
+		vector<Move> root_mate_pv;
+		if (mate_search_root->dfpn(rootPos, &root_mate_pv))
+		{
+			bestMove = root_mate_pv[0];
+			if (root_mate_pv.size() >= 2)
+			{
+				ponderMove = root_mate_pv[1];
+			}
+
+			sync_cout << "info depth " << root_mate_pv.size() << " score mate " << root_mate_pv.size() << " pv";
+			for (auto m : root_mate_pv)
+			{
+				cout << " " << m;
+			}
+			cout << sync_endl;
+		}
+	}
+#endif
+
+	if (!root_node.terminal && bestMove == MOVE_RESIGN)
 	{
 		eval_count_this_search = 0;
 		special_terminal_count_this_search = 0;
