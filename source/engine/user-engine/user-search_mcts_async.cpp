@@ -457,14 +457,11 @@ bool enqueue_pos(const Position &pos, dnn_table_index &path, float &score)
 		{
 			flush_queue();
 		}
-	}
-	if (!not_mate)
-	{
-		score = 1.0;
+		score = 0.0;//この値は使われないはず
 	}
 	else
 	{
-		score = 0.0;//この値は使われないはず
+		score = -1.0;
 	}
 	return not_mate;
 }
