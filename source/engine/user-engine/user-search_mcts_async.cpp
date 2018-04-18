@@ -1060,6 +1060,11 @@ void MainThread::think()
 			{
 				ponderMove = root_mate_pv[1];
 			}
+			else
+			{
+				// 1è‹l‚ß‚Ì‚Æ‚«‚Íponder‚ğo‚³‚È‚¢
+				ponderMove = MOVE_RESIGN;
+			}
 		}
 #endif
 	}
