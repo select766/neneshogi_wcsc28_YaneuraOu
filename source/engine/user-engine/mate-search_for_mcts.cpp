@@ -64,7 +64,7 @@ namespace MateEngine
 {
 
 	static const constexpr int kInfinitePnDn = 100000000;
-	static const constexpr int kMaxDepth = MAX_PLY;
+	// static const constexpr int kMaxDepth = MAX_PLY;
 
 
 	// TODO(tanuki-): ネガマックス法的な書き方に変更する
@@ -80,7 +80,7 @@ namespace MateEngine
 
 		auto& entry = transposition_table.LookUp(n);
 
-		if (depth > kMaxDepth) {
+		if (depth > max_depth) {
 			entry.pn = kInfinitePnDn;
 			entry.dn = 0;
 			entry.minimum_distance = std::min(entry.minimum_distance, depth);
@@ -323,8 +323,9 @@ namespace MateEngine
 		return entry.pn == 0 && entry.dn == kInfinitePnDn;//詰む条件
 	}
 
-	void MateSearchForMCTS::init(int64_t hash_size_mb) {
+	void MateSearchForMCTS::init(int64_t hash_size_mb, int max_depth) {
 		transposition_table.Resize(hash_size_mb);
+		this->max_depth = max_depth;
 	}
 }
 

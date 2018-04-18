@@ -170,12 +170,13 @@ namespace MateEngine
 
 	class MateSearchForMCTS
 	{
+		int max_depth;
 		TranspositionTable transposition_table;
 		void DFPNwithTCA(Position& n, int thpn, int thdn, bool inc_flag, bool or_node, int depth);
 		bool dfs(bool or_node, Position& pos, std::vector<Move>& moves, std::unordered_set<Key>& visited);
 	public:
 		bool dfpn(Position& r, std::vector<Move> *moves);
-		void init(int64_t hash_size_mb);
+		void init(int64_t hash_size_mb, int max_depth);
 	};
 } // end of namespace
 

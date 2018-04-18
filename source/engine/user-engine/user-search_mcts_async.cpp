@@ -254,6 +254,8 @@ static int special_terminal_count_this_search = 0;// ’TõŠJn‚©‚çA•]‰¿ŠÖ”ŒÄ‚Ñ
 static bool dnn_initialized = false;
 static int block_queue_length = 2;
 static MateEngine::MateSearchForMCTS *mate_search_root = nullptr;
+static MateEngine::MateSearchForMCTS *mate_search_leaf = nullptr;
+static int mate_search_leaf_count = 0;//––’[ƒm[ƒh‚Ì‹l‚İ’Tõ‚Å‹l‚İ‚Æ”»’è‚³‚ê‚½‰ñ”
 static vector<Move> root_mate_pv;
 static atomic<bool> root_mate_found;
 
@@ -368,7 +370,12 @@ void  Search::clear()
 	if (mate_search_root == nullptr)
 	{
 		mate_search_root = new MateEngine::MateSearchForMCTS();
-		mate_search_root->init(1024);
+		mate_search_root->init(1024, MAX_PLY);
+	}
+	if (mate_search_leaf == nullptr)
+	{
+		mate_search_leaf = new MateEngine::MateSearchForMCTS();
+		mate_search_leaf->init(1024, 3);
 	}
 #endif
 
@@ -431,12 +438,19 @@ void flush_queue()
 	}
 }
 
-bool enqueue_pos(const Position &pos, dnn_table_index &path, float &score)
+bool enqueue_pos(Position &pos, dnn_table_index &path, float &score, bool use_mate_search)
 {
 	if (pos.DeclarationWin() != MOVE_NONE)
 	{
 		// Ÿ‚¿‹Ç–Ê
 		score = 1.0;
+		return false;
+	}
+	if (use_mate_search && mate_search_leaf->dfpn(pos, nullptr))
+	{
+		// ‹l‚ß‚ÄŸ‚Ä‚é‹Ç–Ê
+		score = 1.0;
+		mate_search_leaf_count++;
 		return false;
 	}
 	if (!eval_objs)
@@ -579,7 +593,7 @@ bool receive_result(bool block)
 	return true;
 }
 
-int get_or_create_root(const Position &pos)
+int get_or_create_root(Position &pos)
 {
 	bool created;
 
@@ -598,7 +612,7 @@ int get_or_create_root(const Position &pos)
 	path.path_length = 1;
 	path.path_indices[0] = index;
 	float mate_score;
-	bool not_mate = enqueue_pos(pos, path, mate_score);
+	bool not_mate = enqueue_pos(pos, path, mate_score, false);
 	if (not_mate)
 	{
 		// •]‰¿‘Ò‚¿
@@ -727,7 +741,7 @@ void mcts_select(int node_index, dnn_table_index &path, Position &pos)
 	{
 		// V‹Kqƒm[ƒh‚È‚Ì‚ÅA•]‰¿
 		float mate_score;
-		bool not_mate = enqueue_pos(pos, path, mate_score);
+		bool not_mate = enqueue_pos(pos, path, mate_score, false);
 		if (not_mate)
 		{
 			// •]‰¿‘Ò‚¿
@@ -832,20 +846,21 @@ void print_pv(int root_index, Position &rootPos)
 	int nps = eval_count_this_search * 1000 / max(elapsed_ms, 1);//0œZ‰ñ”ğ
 	int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
 	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size();
-	if (mate_in >= 0)
-	{
-		char* sign = "";
-		if (mate_in % 2 == 0)
-		{
-			// ‹l‚Ü‚³‚ê‚é•ûŒü‚Ì‚Æ‚«‚Íƒ}ƒCƒiƒX‚ğ‚Â‚¯‚é(‹l‚ñ‚Å‚¢‚Ä0è‚Ì‚Æ‚«‚à-‚ğ•t‚¯‚é)
-			sign = "-";
-		}
-		cout << " score mate " << sign << mate_in;
-	}
-	else
-	{
+	//if (mate_in >= 0)
+	//{
+	//	char* sign = "";
+	//	if (mate_in % 2 == 0)
+	//	{
+	//		// ‹l‚Ü‚³‚ê‚é•ûŒü‚Ì‚Æ‚«‚Íƒ}ƒCƒiƒX‚ğ‚Â‚¯‚é(‹l‚ñ‚Å‚¢‚Ä0è‚Ì‚Æ‚«‚à-‚ğ•t‚¯‚é)
+	//		sign = "-";
+	//	}
+	//	cout << " score mate " << sign << mate_in;
+	//}
+	//else
+	//{
+	// // Œ»ómate_in‚ªM—p‚È‚ç‚È‚¢‚Ì‚Å•\¦‚µ‚È‚¢(greedy‚È“Ç‚İ‹Ø‚Ì––’[‚ªmate‚È‚¾‚¯‚ÅŠO‚·‚±‚Æ‚ª‘½‚¢)
 		cout << " score cp " << winrate_to_cp(winrate);
-	}
+	//}
 
 	cout << " time " << elapsed_ms << " nps " << nps << " hashfull " << hashfull << " pv";
 	for (auto m : pv)
@@ -943,6 +958,7 @@ void MainThread::think()
 		{
 			eval_count_this_search = 0;
 			special_terminal_count_this_search = 0;
+			mate_search_leaf_count = 0;
 
 			// –‘OŠm—¦•\¦
 			sync_cout << "info string prob ";
@@ -1034,7 +1050,7 @@ void MainThread::think()
 
 			select_best_move(rootPos, root_node, bestMove, ponderMove);
 
-			sync_cout << "info string dup eval=" << total_dup_eval << " special=" << special_terminal_count_this_search << sync_endl;
+			sync_cout << "info string dup eval=" << total_dup_eval << " special=" << special_terminal_count_this_search << " mate_leaf=" << mate_search_leaf_count << sync_endl;
 			sync_cout << "info string max depth=" << current_max_depth << sync_endl;
 			print_pv(root_index, rootPos);
 		}
