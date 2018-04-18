@@ -963,7 +963,7 @@ void MainThread::think()
 		bool no_more_search = false;
 		while (true)
 		{
-			if (in_search_time && (n_select < max_select))
+			if (in_search_time && (n_select < max_select || Threads.ponder))  // Ponder’†‚ÍŽw’èƒm[ƒh”‚ð’´‚¦‚Ä‚à’Tõ‚·‚é
 			{
 				dnn_table_index path;
 				path.path_length = 1;
