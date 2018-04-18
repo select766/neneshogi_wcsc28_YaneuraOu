@@ -254,6 +254,8 @@ static int special_terminal_count_this_search = 0;// ’TõŠJn‚©‚çA•]‰¿ŠÖ”ŒÄ‚Ñ
 static bool dnn_initialized = false;
 static int block_queue_length = 2;
 static MateEngine::MateSearchForMCTS *mate_search_root = nullptr;
+static vector<Move> root_mate_pv;
+static atomic<bool> root_mate_found;
 
 // USIŠg’£ƒRƒ}ƒ“ƒh"user"‚ª‘—‚ç‚ê‚Ä‚­‚é‚Æ‚±‚ÌŠÖ”‚ªŒÄ‚Ño‚³‚ê‚éBÀŒ±‚Ég‚Á‚Ä‚­‚¾‚³‚¢B
 void user_test(Position& pos_, istringstream& is)
@@ -906,25 +908,9 @@ void MainThread::think()
 	int n_select = root_node.value_n_sum;
 
 #ifdef USE_MCTS_MATE_ENGINE
-	if (true)
-	{
-		vector<Move> root_mate_pv;
-		if (mate_search_root->dfpn(rootPos, &root_mate_pv))
-		{
-			bestMove = root_mate_pv[0];
-			if (root_mate_pv.size() >= 2)
-			{
-				ponderMove = root_mate_pv[1];
-			}
-
-			sync_cout << "info depth " << root_mate_pv.size() << " score mate " << root_mate_pv.size() << " pv";
-			for (auto m : root_mate_pv)
-			{
-				cout << " " << m;
-			}
-			cout << sync_endl;
-		}
-	}
+	root_mate_found = false;
+	root_mate_pv.clear();
+	Threads[1]->start_searching();
 #endif
 
 	if (!root_node.terminal && bestMove == MOVE_RESIGN)
@@ -1036,6 +1022,19 @@ void MainThread::think()
 		// ponder’†‚Í•Ô‚µ‚Ä‚Í‚¢‚¯‚È‚¢
 		sleep(1);
 	}
+	Threads.stop = true;
+#ifdef USE_MCTS_MATE_ENGINE
+	Threads[1]->wait_for_search_finished();
+
+	if (root_mate_found)
+	{
+		bestMove = root_mate_pv[0];
+		if (root_mate_pv.size() >= 2)
+		{
+			ponderMove = root_mate_pv[1];
+		}
+	}
+#endif
 	sync_cout << "bestmove " << bestMove;
 	if (ponderMove != MOVE_RESIGN)
 	{
@@ -1050,5 +1049,22 @@ void MainThread::think()
 // ‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚µ‚½‚¢‚Æ‚«‚ÍAThread::search()‚Æ‚·‚é‚±‚ÆB
 void Thread::search()
 {
+	// ‹l‚İ’TõslaveƒXƒŒƒbƒh‚ğ1ŒÂ‚¾‚¯—§‚Ä‚é
+	sync_cout << "info string mate search thread started" << sync_endl;
+	if (mate_search_root->dfpn(rootPos, &root_mate_pv))
+	{
+		root_mate_found = true;
+		sync_cout << "info string root MATE FOUND!" << sync_endl;
+		sync_cout << "info depth " << root_mate_pv.size() << " score mate " << root_mate_pv.size() << " pv";
+		for (auto m : root_mate_pv)
+		{
+			cout << " " << m;
+		}
+		cout << sync_endl;
+	}
+	else
+	{
+		sync_cout << "info string NO root mate" << sync_endl;
+	}
 }
 #endif

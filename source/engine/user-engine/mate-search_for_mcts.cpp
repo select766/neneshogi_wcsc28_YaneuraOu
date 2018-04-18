@@ -69,9 +69,9 @@ namespace MateEngine
 
 	// TODO(tanuki-): ネガマックス法的な書き方に変更する
 	void MateSearchForMCTS::DFPNwithTCA(Position& n, int thpn, int thdn, bool inc_flag, bool or_node, int depth) {
-		//if (Threads.stop.load(std::memory_order_relaxed)) {
-		//	return;
-		//}
+		if (Threads.stop.load(std::memory_order_relaxed)) {
+			return;
+		}
 
 		//auto nodes_searched = n.this_thread()->nodes.load(memory_order_relaxed);
 		//if (nodes_searched && nodes_searched % 10000000 == 0) {
@@ -313,12 +313,6 @@ namespace MateEngine
 
 		DFPNwithTCA(r, kInfinitePnDn, kInfinitePnDn, false, true, 0);
 		const auto& entry = transposition_table.LookUp(r);
-		auto nodes_searched = r.this_thread()->nodes.load(memory_order_relaxed);
-		sync_cout << "info string" <<
-			" pn " << entry.pn <<
-			" dn " << entry.dn <<
-			" nodes_searched " << nodes_searched << sync_endl;
-
 
 		if (moves != nullptr)
 		{
