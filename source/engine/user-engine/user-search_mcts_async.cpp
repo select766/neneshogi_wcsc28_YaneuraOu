@@ -417,6 +417,15 @@ void  Search::clear()
 			sync_cout << "info string FAILED to start dnn process!" << sync_endl;
 		}
 		init_dnn_queues(queue_name_prefix);
+
+		int n_watcher = ((int)Options["gpu_max"] - (int)Options["gpu_min"] + 1) * (int)Options["process_per_gpu"];
+		int cur_watchers;
+		while ((cur_watchers = result_queue->get_watcher_count()) < n_watcher)
+		{
+			sync_cout << "info string dnn watcher = " << cur_watchers << sync_endl;
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+		}
+		sync_cout << "info string dnn watcher = " << cur_watchers << sync_endl;
 	}
 
 	show_error_if_dnn_queue_fail();

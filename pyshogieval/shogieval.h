@@ -20,4 +20,6 @@ public:
 		py::array_t<uint16_t, py::array::c_style> n_moves);
 	void put(int count, std::string dnn_table_indexes, py::array_t<uint16_t, py::array::c_style> move_and_prob,
 		py::array_t<uint16_t, py::array::c_style> n_moves, py::array_t<int16_t, py::array::c_style> static_value);
+	int increment_watcher_count();
+	int get_watcher_count();
 };

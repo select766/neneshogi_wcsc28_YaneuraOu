@@ -14,6 +14,8 @@ PYBIND11_MODULE(pyshogieval, m) {
 		.def(py::init<int, int, std::string>())
 		.def("get", &ShogiEval::get)
 		.def("put", &ShogiEval::put)
+		.def("increment_watcher_count", &ShogiEval::increment_watcher_count)
+		.def("get_watcher_count", &ShogiEval::get_watcher_count)
 		.def_readonly_static("MOVE_SIZE", &ShogiEval::MOVE_SIZE)
 		.def_readonly_static("DNN_INPUT_CHANNEL", &ShogiEval::DNN_INPUT_CHANNEL)
 		;

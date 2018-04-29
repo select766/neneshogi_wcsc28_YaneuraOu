@@ -158,3 +158,13 @@ void ShogiEval::put(int count, std::string dnn_table_indexes, py::array_t<uint16
 	result_queue->end_write();
 
 }
+
+int ShogiEval::increment_watcher_count()
+{
+	return result_queue->increment_watcher_count();
+}
+
+int ShogiEval::get_watcher_count()
+{
+	return result_queue->get_watcher_count();
+}
