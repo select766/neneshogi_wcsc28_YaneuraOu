@@ -852,7 +852,7 @@ void print_pv(int root_index, Position &rootPos)
 	int mate_in;
 	get_pv(root_index, pv, rootPos, true, winrate, mate_in);
 	int elapsed_ms = Time.elapsed();
-	int nps = eval_count_this_search * 1000 / max(elapsed_ms, 1);//0除算回避
+	int nps = (int)((long long)eval_count_this_search * 1000 / max(elapsed_ms, 1));//0除算回避, 2Mノード以上読むとintではオーバーフロー
 	int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
 	sync_cout << "info nodes " << root_node->value_n_sum << " depth " << pv.size();
 	//if (mate_in >= 0)
