@@ -345,26 +345,15 @@ void  Search::clear()
 
 	sync_cout << "info string node hash " << (node_hash_size / (1024 * 1024)) << "M elements (Max " << MAX_UCT_CHILDREN << "moves / node)" << sync_endl;
 
-	node_hash = new NodeHash((int)node_hash_size);
+	auto hash_init_thread = std::thread([node_hash_size] {
+		node_hash = new NodeHash((int)node_hash_size);
+		sync_cout << "info string node hash init completed" << sync_endl;
+	});
 	tree_config.c_puct = (float)atof(((string)Options["c_puct"]).c_str());
 	tree_config.play_temperature = (float)atof(((string)Options["play_temperature"]).c_str());
 	tree_config.virtual_loss = (int)Options["virtual_loss"];
 	tree_config.value_scale = (float)atof(((string)Options["value_scale"]).c_str());
 	tree_config.clear_table_before_search = (bool)Options["clear_table"];
-	string initial_tt = (string)Options["initial_tt"];
-	if (initial_tt.size() > 0)
-	{
-		sync_cout << "info string loading initial tt" << sync_endl;
-		if (node_hash->load(initial_tt))
-		{
-			int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
-			sync_cout << "info string loading ok hashfull " << hashfull << sync_endl;
-		}
-		else
-		{
-			sync_cout << "info string failed loading initial tt" << sync_endl;
-		}
-	}
 
 #ifdef USE_MCTS_MATE_ENGINE
 	if (mate_search_root == nullptr)
@@ -429,6 +418,23 @@ void  Search::clear()
 	}
 
 	show_error_if_dnn_queue_fail();
+
+	hash_init_thread.join();
+
+	string initial_tt = (string)Options["initial_tt"];
+	if (initial_tt.size() > 0)
+	{
+		sync_cout << "info string loading initial tt" << sync_endl;
+		if (node_hash->load(initial_tt))
+		{
+			int hashfull = (int)((long long)node_hash->used * 1000 / node_hash->uct_hash_size);
+			sync_cout << "info string loading ok hashfull " << hashfull << sync_endl;
+		}
+		else
+		{
+			sync_cout << "info string failed loading initial tt" << sync_endl;
+		}
+	}
 
 #ifdef _DEBUG
 	std::this_thread::sleep_for(std::chrono::seconds(5));
