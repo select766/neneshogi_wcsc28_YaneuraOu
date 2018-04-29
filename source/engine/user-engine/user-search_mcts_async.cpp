@@ -8,6 +8,7 @@
 #ifdef USER_ENGINE_MCTS_ASYNC
 
 #define MAX_UCT_CHILDREN 16//UCTノードの子ノード数最大
+static int obsolete_removed_count = 0;
 
 namespace MCTSAsync
 {
@@ -51,11 +52,12 @@ namespace MCTSAsync
 		int uct_hash_limit;
 		unsigned int uct_hash_mask;
 		int used;
+		int obsolete_game_ply;
 		bool enough_size;
 		NodeHashEntry *entries;
 		UctNode *nodes;
 
-		NodeHash(int uct_hash_size) :uct_hash_size(uct_hash_size), used(0), enough_size(true)
+		NodeHash(int uct_hash_size) :uct_hash_size(uct_hash_size), used(0), enough_size(true), obsolete_game_ply(0)
 		{
 			uct_hash_limit = (int)(uct_hash_size * 0.9);
 			uct_hash_mask = (unsigned int)uct_hash_size - 1;
@@ -85,6 +87,17 @@ namespace MCTSAsync
 				NodeHashEntry *nhe = &entries[index];
 				if (nhe->flag)
 				{
+					if (nhe->game_ply < obsolete_game_ply)
+					{
+						// ここを上書きする
+						nhe->key = key;
+						nhe->game_ply = game_ply;
+
+						*created = true;
+						memset(&nodes[index], 0, sizeof(UctNode));
+						obsolete_removed_count++;
+						return index;
+					}
 					if (nhe->key == key && nhe->game_ply == game_ply)
 					{
 						*created = false;
@@ -959,6 +972,10 @@ void MainThread::think()
 	}
 	else
 	{
+		// これより古いハッシュテーブル要素はもう使わないので消していい。
+		// ponderの場合、rootの親（現在相手が思考中の局面と同じ手数）までは残さないといけない。
+		node_hash->obsolete_game_ply = rootPos.game_ply() - 1;
+
 		int root_index = get_or_create_root(rootPos);
 		UctNode &root_node = node_hash->nodes[root_index];
 		int n_select = root_node.value_n_sum;
@@ -1067,6 +1084,7 @@ void MainThread::think()
 
 			sync_cout << "info string dup eval=" << total_dup_eval << " special=" << special_terminal_count_this_search << " mate_leaf=" << mate_search_leaf_count << sync_endl;
 			sync_cout << "info string max depth=" << current_max_depth << sync_endl;
+			sync_cout << "info string obsolete_removed=" << obsolete_removed_count << sync_endl;
 			print_pv(root_index, rootPos);
 		}
 
