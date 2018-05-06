@@ -1,3 +1,23 @@
+# ねね将棋 第28回世界コンピュータ将棋選手権(WCSC28)版
+2018年5月に出場したバージョンです。
+
+環境構築がとても面倒なので、使用はおすすめしません。アイデアの参考としてご利用ください。このリポジトリはやねうら王を改造したもののため、GPLv3ライセンスとします。
+
+# 構成
+- このリポジトリのmasterブランチ
+  - 本体となるUSIエンジンとpythonモジュール。
+- このリポジトリのpython-dllブランチ
+  - 学習時に使うpythonモジュール。
+- neneshogiリポジトリ [https://github.com/select766/neneshogi](https://github.com/select766/neneshogi)
+  - deep learning関係。対局用コードと学習用コードの両方が入っている。
+- ipqueueリポジトリ [https://github.com/select766/ipqueue](https://github.com/select766/ipqueue)
+  - プロセス間通信用ライブラリ。git submoduleとしてロードされる。
+
+
+
+以下、オリジナルのやねうら王のREADME
+====
+
 # About this project
 
 YaneuraOu mini is a shogi engine(AI player), stronger than Bonanza6 , educational and tiny code(about 2500 lines) , USI compliant engine , capable of being compiled by VC++2017
