@@ -1,18 +1,109 @@
 # ねね将棋 第28回世界コンピュータ将棋選手権(WCSC28)版
 2018年5月に出場したバージョンです。
 
+Deep Learningを用いた評価関数で探索を行う将棋プログラム。1次予選にて、40チーム中15位。
+
 環境構築がとても面倒なので、使用はおすすめしません。アイデアの参考としてご利用ください。このリポジトリはやねうら王を改造したもののため、GPLv3ライセンスとします。
 
 # 構成
 - このリポジトリのmasterブランチ
-  - 本体となるUSIエンジンとpythonモジュール。
-- このリポジトリのpython-dllブランチ
-  - 学習時に使うpythonモジュール。
-- neneshogiリポジトリ [https://github.com/select766/neneshogi](https://github.com/select766/neneshogi)
+  - 本体となるUSIエンジン(`YaneuraOu-user.exe`)とpythonモジュール(`pyshogieval.pyd`)。
+- このリポジトリの[python-dllブランチ](https://github.com/select766/neneshogi_wcsc28_YaneuraOu/tree/python-dll)
+  - 学習時に使うpythonモジュール(`yaneuraou.pyd`)。
+- neneshogiリポジトリ [https://github.com/select766/neneshogi](https://github.com/select766/neneshogi/tree/2018-wcsc28-final)
   - deep learning関係。対局用コードと学習用コードの両方が入っている。
-- ipqueueリポジトリ [https://github.com/select766/ipqueue](https://github.com/select766/ipqueue)
+- ipqueueリポジトリ [https://github.com/select766/ipqueue](https://github.com/select766/ipqueue/tree/d63ca8d87e5966014bcfa5edd560f7cef193853e)
   - プロセス間通信用ライブラリ。git submoduleとしてロードされる。
 
+# 環境
+Visual Studio 2017, Python 3.6, CUDA 9.0, cuDNN 7.1
+
+# masterブランチのセットアップ、ビルド
+```
+git submodule init
+git submodule update  # ipqueueリポジトリをロード
+```
+
+Visual Studio 2017にて、"Release-user"構成でビルド。
+
+YaneuraOuプロジェクトから、`build/user/YaneuraOu-user.exe`が、pyshogievalプロジェクトから、`pyshogieval/pyshogieval/pyshogieval.pyd`が生成されるはず。
+
+```
+cd pyshogieval
+python setup.py develop  # python環境にpyshogievalモジュールをインストール
+```
+
+# python-dllブランチのセットアップ、ビルド
+masterとは別の場所にcloneすることを推奨。学習時のみ必要で、エンジンの実行には不要。
+
+Visual Studio 2017にて、"Release-user"構成でビルド。
+
+`python/yaneuraou/yaneuraou.pyd`が生成されるはず。
+
+```
+cd python
+python setup.py develop
+```
+
+# neneshogiリポジトリのセットアップ
+リポジトリをclone
+
+```
+pip install -r requirements.txt
+python setup.py develop
+```
+
+`neneshogi_cpp` Visual Studio プロジェクトは不使用のはず。
+
+# 将棋所からの利用
+USIエンジンとして`build/user/YaneuraOu-user.exe`を登録。
+
+設定(デフォルトでないものを **太字** で表示)
+- **Threads** : 2
+- Hash: 16
+- MultiPV: 1
+- WriteDebugLog: false
+- NetworkDelay: 120
+- NetworkDelay2: 1120
+- MinimumThinkingTime: 2000
+- **SlowMover** : 150
+- MaxMovesToDraw: 0
+- DepthLimit: 0
+- **NodesLimit** : 1000000
+- Contempt: 2
+- ContemptFromBlack: false
+- **EnteringKingRule** : CSARule27
+- EvalDir: eval
+- PvInterval: 1000
+- **MCTSHash** : 80
+- **c_puct** : 2.84
+- play_temperature: 1.0
+- **softmax** : 0.86
+- value_scale: 1.0
+- value_slope: 1.0
+- virtual_loss: 1
+- clear_table: false
+- **model** : (モデルのウェイトファイルへの絶対パス)
+- **initial_tt** : (定跡置換表ファイルのあるパス)
+- **batch_size** : 512
+- **process_per_gpu** : 2
+- **gpu_max** : 7
+- **gpu_min** : 0
+- **block_queue_length** : 20
+
+本番モデルは`data\model\20180316103614\weight\model_iter_1953125`
+本番置換表は`data\make_book\first\ttable\merged.bin`
+
+# 学習例
+やねうら王形式の40byte/recordの棋譜データを用意する。
+
+http://yaneuraou.yaneu.com/2018/01/23/%E6%9C%88%E5%88%8A%E6%95%99%E5%B8%AB%E5%B1%80%E9%9D%A2-2018%E5%B9%B41%E6%9C%88%E5%8F%B7/
+
+`data/model/20180316103614`に学習の設定が書いてあるとき、
+```
+python -m neneshogi.train data/model/20180316103614
+```
+データセットのファイル名を環境に合わせて書き換えたり、`solver.yaml`の`initmodel`行を初期値となるモデルがないなら削除したりする必要がある。
 
 
 以下、オリジナルのやねうら王のREADME
